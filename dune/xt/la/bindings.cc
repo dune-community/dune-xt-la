@@ -48,47 +48,47 @@ PYBIND11_PLUGIN(_la)
 
   LA::bind_Backends(m);
 
-  auto common_dense_vector_double = LA::bind_Vector<LA::CommonDenseVector<double>>(m);
+//  auto common_dense_vector_double = LA::bind_Vector<LA::CommonDenseVector<double>>(m);
 #if HAVE_DUNE_ISTL
   auto istl_dense_vector_double = LA::bind_Vector<LA::IstlDenseVector<double>>(m);
 #endif
-#if HAVE_EIGEN
-  auto eigen_dense_vector_double = LA::bind_Vector<LA::EigenDenseVector<double>>(m);
-#endif
+  //#if HAVE_EIGEN
+  //  auto eigen_dense_vector_double = LA::bind_Vector<LA::EigenDenseVector<double>>(m);
+  //#endif
 
   LA::bind_SparsityPatternDefault(m);
 
 #define BIND_MATRIX(C, s, c) auto c = LA::bind_Matrix<C, s>(m);
 
-  BIND_MATRIX(LA::CommonDenseMatrix<double>, false, common_dense_matrix_double);
+//  BIND_MATRIX(LA::CommonDenseMatrix<double>, false, common_dense_matrix_double);
 //  BIND_MATRIX(LA::CommonSparseMatrix<double>, true, common_sparse_matrix_double);
 #if HAVE_DUNE_ISTL
   BIND_MATRIX(LA::IstlRowMajorSparseMatrix<double>, true, istl_row_major_sparse_matrix_double);
 #endif
-#if HAVE_EIGEN
-  //  BIND_MATRIX(LA::EigenDenseMatrix<double>, false, eigen_dense_matrix_double);
-  BIND_MATRIX(LA::EigenRowMajorSparseMatrix<double>, true, eigen_row_major_sparse_matrix_double);
-#endif
+//#if HAVE_EIGEN
+//  BIND_MATRIX(LA::EigenDenseMatrix<double>, false, eigen_dense_matrix_double);
+//  BIND_MATRIX(LA::EigenRowMajorSparseMatrix<double>, true, eigen_row_major_sparse_matrix_double);
+//#endif
 #undef BIND_MATRIX
-  LA::addbind_Matrix_Vector_interaction(common_dense_matrix_double, common_dense_vector_double);
+//  LA::addbind_Matrix_Vector_interaction(common_dense_matrix_double, common_dense_vector_double);
 //  LA::addbind_Matrix_Vector_interaction(common_sparse_matrix_double, common_dense_vector_double);
 #if HAVE_DUNE_ISTL
   LA::addbind_Matrix_Vector_interaction(istl_row_major_sparse_matrix_double, istl_dense_vector_double);
 #endif
-#if HAVE_EIGEN
-  //  LA::addbind_Matrix_Vector_interaction(eigen_dense_matrix_double, eigen_dense_vector_double);
-  LA::addbind_Matrix_Vector_interaction(eigen_row_major_sparse_matrix_double, eigen_dense_vector_double);
-#endif
+//#if HAVE_EIGEN
+//  LA::addbind_Matrix_Vector_interaction(eigen_dense_matrix_double, eigen_dense_vector_double);
+//  LA::addbind_Matrix_Vector_interaction(eigen_row_major_sparse_matrix_double, eigen_dense_vector_double);
+//#endif
 
-  LA::bind_Solver<LA::CommonDenseMatrix<double>>(m);
+//  LA::bind_Solver<LA::CommonDenseMatrix<double>>(m);
 //  LA::bind_Solver<LA::CommonSparseMatrix<double>>(m);
 #if HAVE_DUNE_ISTL
   LA::bind_Solver<LA::IstlRowMajorSparseMatrix<double>>(m);
 #endif
-#if HAVE_EIGEN
-  LA::bind_Solver<LA::EigenDenseMatrix<double>>(m);
-  LA::bind_Solver<LA::EigenRowMajorSparseMatrix<double>>(m);
-#endif
+  //#if HAVE_EIGEN
+  //  LA::bind_Solver<LA::EigenDenseMatrix<double>>(m);
+  //  LA::bind_Solver<LA::EigenRowMajorSparseMatrix<double>>(m);
+  //#endif
 
   m.def("_init_mpi",
         [](const std::vector<std::string>& args) {
