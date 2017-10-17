@@ -192,47 +192,47 @@ public:
     return ret;
   } // ... real_eigenvectors(...)
 
-  virtual std::shared_ptr<ComplexMatrixType> eigenvectors_as_matrix() const
+  virtual ComplexMatrixType eigenvectors_as_matrix() const
   {
     return eigenvectors_as_matrix(types().at(0));
   }
 
-  virtual std::shared_ptr<ComplexMatrixType> eigenvectors_as_matrix(const std::string& type) const
+  virtual ComplexMatrixType eigenvectors_as_matrix(const std::string& type) const
   {
     return eigenvectors_as_matrix(options(type));
   }
 
-  virtual std::shared_ptr<ComplexMatrixType> eigenvectors_as_matrix(const Common::Configuration& opts) const
+  virtual ComplexMatrixType eigenvectors_as_matrix(const Common::Configuration& opts) const
   {
     const size_t rows = MatrixAbstractionType::rows(matrix_);
     const size_t cols = MatrixAbstractionType::cols(matrix_);
     const auto evs = eigenvectors(opts);
-    auto ret = std::make_shared<ComplexMatrixType>(ComplexMatrixAbstractionType::create(rows, cols));
+    auto ret = ComplexMatrixAbstractionType::create(rows, cols);
     for (size_t ii = 0; ii < MatrixAbstractionType::rows(matrix_); ++ii)
       for (size_t jj = 0; jj < MatrixAbstractionType::cols(matrix_); ++jj)
-        ComplexMatrixAbstractionType::set_entry(*ret, ii, jj, evs[jj][ii]);
+        ComplexMatrixAbstractionType::set_entry(ret, ii, jj, evs[jj][ii]);
     return ret;
   } // ... eigenvectors_as_matrix(...)
 
-  virtual std::shared_ptr<RealMatrixType> real_eigenvectors_as_matrix() const
+  virtual RealMatrixType real_eigenvectors_as_matrix() const
   {
     return real_eigenvectors_as_matrix(types().at(0));
   }
 
-  virtual std::shared_ptr<RealMatrixType> real_eigenvectors_as_matrix(const std::string& type) const
+  virtual RealMatrixType real_eigenvectors_as_matrix(const std::string& type) const
   {
     return real_eigenvectors_as_matrix(options(type));
   }
 
-  virtual std::shared_ptr<RealMatrixType> real_eigenvectors_as_matrix(const Common::Configuration& opts) const
+  virtual RealMatrixType real_eigenvectors_as_matrix(const Common::Configuration& opts) const
   {
     const size_t rows = MatrixAbstractionType::rows(matrix_);
     const size_t cols = MatrixAbstractionType::cols(matrix_);
     const auto evs = real_eigenvectors(opts);
-    auto ret = std::make_shared<RealMatrixType>(RealMatrixAbstractionType::create(rows, cols));
+    auto ret = RealMatrixAbstractionType::create(rows, cols);
     for (size_t ii = 0; ii < MatrixAbstractionType::rows(matrix_); ++ii)
       for (size_t jj = 0; jj < MatrixAbstractionType::cols(matrix_); ++jj)
-        RealMatrixAbstractionType::set_entry(*ret, ii, jj, evs[jj][ii]);
+        RealMatrixAbstractionType::set_entry(ret, ii, jj, evs[jj][ii]);
     return ret;
   } // ... real_eigenvectors_as_matrix(...)
 

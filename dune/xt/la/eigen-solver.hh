@@ -37,6 +37,8 @@ public:
   typedef int RealType;
   typedef int ComplexVectorType;
   typedef int RealVectorType;
+  typedef int ComplexMatrixType;
+  typedef int RealMatrixType;
 
   EigenSolver(const MatrixType& /*matrix*/)
   {
@@ -203,6 +205,59 @@ public:
     return std::vector<RealVectorType>();
   }
 
+  ComplexMatrixType eigenvectors_as_matrix() const
+  {
+    DUNE_THROW(NotImplemented,
+               "This is the unspecialized version of LA::EigenSolver< ... >, please add a specialization for '"
+                   << Common::Typename<MatrixType>::value()
+                   << "'!");
+    return ComplexMatrixType();
+  }
+
+  ComplexMatrixType eigenvectors_as_matrix(const std::string& type) const
+  {
+    DUNE_THROW(NotImplemented,
+               "This is the unspecialized version of LA::EigenSolver< ... >, please add a specialization for '"
+                   << Common::Typename<MatrixType>::value()
+                   << "'!");
+    return ComplexMatrixType();
+  }
+
+  ComplexMatrixType eigenvectors_as_matrix(const Common::Configuration& opts) const
+  {
+    DUNE_THROW(NotImplemented,
+               "This is the unspecialized version of LA::EigenSolver< ... >, please add a specialization for '"
+                   << Common::Typename<MatrixType>::value()
+                   << "'!");
+    return ComplexMatrixType();
+  }
+
+  RealMatrixType real_eigenvectors_as_matrix() const
+  {
+    DUNE_THROW(NotImplemented,
+               "This is the unspecialized version of LA::EigenSolver< ... >, please add a specialization for '"
+                   << Common::Typename<MatrixType>::value()
+                   << "'!");
+    return RealMatrixType();
+  }
+
+  RealMatrixType real_eigenvectors_as_matrix(const std::string& type) const
+  {
+    DUNE_THROW(NotImplemented,
+               "This is the unspecialized version of LA::EigenSolver< ... >, please add a specialization for '"
+                   << Common::Typename<MatrixType>::value()
+                   << "'!");
+    return RealMatrixType();
+  }
+
+  RealMatrixType real_eigenvectors_as_matrix(const Common::Configuration& opts) const
+  {
+    DUNE_THROW(NotImplemented,
+               "This is the unspecialized version of LA::EigenSolver< ... >, please add a specialization for '"
+                   << Common::Typename<MatrixType>::value()
+                   << "'!");
+    return RealMatrixType();
+  }
 }; // class EigenSolver
 
 
