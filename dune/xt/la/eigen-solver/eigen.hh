@@ -26,8 +26,8 @@ namespace Dune {
 namespace XT {
 namespace LA {
 
-
 #if HAVE_EIGEN
+
 
 template <class S>
 class EigenDenseMatrixEigenSolverTraits
@@ -35,13 +35,13 @@ class EigenDenseMatrixEigenSolverTraits
 public:
   typedef EigenDenseMatrix<S> MatrixType;
   typedef typename MatrixType::RealType RealType;
-  typedef typename std::complex<RealType> ComplexType;
   typedef typename XT::LA::Container<RealType, MatrixType::vector_type>::VectorType RealVectorType;
-  typedef typename XT::LA::Container<ComplexType, MatrixType::vector_type>::VectorType ComplexVectorType;
+  typedef typename XT::LA::Container<std::complex<RealType>, MatrixType::vector_type>::VectorType ComplexVectorType;
   typedef EigenDenseMatrix<RealType> RealMatrixType;
-  typedef EigenDenseMatrix<ComplexType> ComplexMatrixType;
+  typedef EigenDenseMatrix<std::complex<RealType>> ComplexMatrixType;
   typedef EigenSolver<MatrixType> derived_type;
 };
+
 
 template <class S>
 class EigenSolver<EigenDenseMatrix<S>> : public EigenSolverBase<EigenDenseMatrixEigenSolverTraits<S>>
@@ -50,7 +50,7 @@ class EigenSolver<EigenDenseMatrix<S>> : public EigenSolverBase<EigenDenseMatrix
 
 public:
   using typename BaseType::MatrixType;
-  using typename BaseType::ComplexType;
+  using typename BaseType::RealType;
   using typename BaseType::ComplexVectorType;
 
   EigenSolver(const MatrixType& matrix)
@@ -83,7 +83,8 @@ public:
     return default_options;
   }
 
-  virtual void get_eigenvalues(std::vector<ComplexType>& evs, const std::string& type) const override final
+protected:
+  void get_eigenvalues(std::vector<std::complex<RealType>>& evs, const std::string& type) const override final
   {
     if (type == "eigen")
       evs = internal::compute_all_eigenvalues_using_eigen(matrix_.backend());
@@ -96,7 +97,7 @@ public:
                  "Given type '" << type << "' is not supported, although it was reported by types()!");
   }
 
-  virtual void get_eigenvectors(std::vector<ComplexVectorType>& evs, const std::string& type) const override final
+  void get_eigenvectors(std::vector<ComplexVectorType>& evs, const std::string& type) const override final
   {
     if (type == "eigen")
       evs = internal::compute_all_eigenvectors_using_eigen(matrix_.backend());
@@ -109,7 +110,6 @@ public:
                  "Given type '" << type << "' is not supported, although it was reported by types()!");
   }
 
-protected:
   using BaseType::matrix_;
 }; // class EigenSolver<EigenDenseMatrix<S>>
 

@@ -26,24 +26,24 @@ class EigenSolverBase : protected internal::SolverUtils
 public:
   typedef typename Traits::MatrixType MatrixType;
   typedef typename Traits::RealType RealType;
-  typedef typename Traits::ComplexType ComplexType;
   typedef typename Traits::RealMatrixType RealMatrixType;
   typedef typename Traits::ComplexMatrixType ComplexMatrixType;
   typedef typename Traits::RealVectorType RealVectorType;
   typedef typename Traits::ComplexVectorType ComplexVectorType;
+
+protected:
   typedef typename Traits::derived_type derived_type;
   typedef XT::Common::MatrixAbstraction<MatrixType> MatrixAbstractionType;
   typedef XT::Common::MatrixAbstraction<RealMatrixType> RealMatrixAbstractionType;
   typedef XT::Common::MatrixAbstraction<ComplexMatrixType> ComplexMatrixAbstractionType;
 
+public:
   EigenSolverBase(const MatrixType& matrix)
     : matrix_(matrix)
   {
   }
 
-  virtual ~EigenSolverBase()
-  {
-  }
+  virtual ~EigenSolverBase() = default;
 
   static std::vector<std::string> types()
   {
@@ -55,9 +55,11 @@ public:
     return derived_type::options(type);
   }
 
-  virtual void get_eigenvalues(std::vector<ComplexType>& evs, const std::string& type) const = 0;
+protected:
+  virtual void get_eigenvalues(std::vector<std::complex<RealType>>& evs, const std::string& type) const = 0;
   virtual void get_eigenvectors(std::vector<ComplexVectorType>& evs, const std::string& type) const = 0;
 
+public:
   virtual std::vector<std::complex<RealType>> eigenvalues() const
   {
     return eigenvalues(types().at(0));
@@ -68,17 +70,6 @@ public:
     return eigenvalues(options(type));
   }
 
-  virtual std::string parse_opts(const XT::Common::Configuration& opts) const
-  {
-    if (!opts.has_key("type"))
-      DUNE_THROW(Common::Exceptions::configuration_error,
-                 "Given options (see below) need to have at least the key 'type' set!\n\n"
-                     << opts);
-    const auto type = opts.get<std::string>("type");
-    internal::SolverUtils::check_given(type, types());
-    return type;
-  }
-
   virtual std::vector<std::complex<RealType>> eigenvalues(const Common::Configuration& opts) const
   {
     const auto type = parse_opts(opts);
@@ -86,7 +77,7 @@ public:
     const Common::Configuration default_opts = options(type);
     check_input(opts, default_opts);
     // solve
-    std::vector<ComplexType> evs;
+    std::vector<std::complex<RealType>> evs;
     get_eigenvalues(evs, type);
     // check
     check_eigenvalues(evs, opts, default_opts);
@@ -94,17 +85,61 @@ public:
     return evs;
   } // ... eigenvalues(...)
 
-  template <class... Args>
-  std::vector<RealType> min_eigenvalues(Args&&... args) const
+  virtual std::vector<RealType> real_eigenvalues() const
   {
-    return sorted_eigenvalues(true, std::forward<Args>(args)...);
-  } // ... min_eigenvalues(...)
+    return real_eigenvalues(types().at(0));
+  }
 
-  template <class... Args>
-  std::vector<RealType> max_eigenvalues(Args&&... args) const
+  virtual std::vector<RealType> real_eigenvalues(const std::string type) const
   {
-    return sorted_eigenvalues(false, std::forward<Args>(args)...);
-  } // ... min_eigenvalues(...)
+    return real_eigenvalues(options(type));
+  }
+
+  virtual std::vector<RealType> real_eigenvalues(const Common::Configuration& opts) const
+  {
+    Common::Configuration options_to_ensure_real_evs = opts;
+    if (!options_to_ensure_real_evs.has_key("check_eigenvectors_are_real"))
+      options_to_ensure_real_evs["check_eigenvectors_are_real"] = "1e-15";
+    auto evs = eigenvalues(options_to_ensure_real_evs);
+    std::vector<RealType> real_evs(evs.size());
+    for (size_t ii = 0; ii < evs.size(); ++ii)
+      real_evs[ii] = evs[ii].real();
+    return real_evs;
+  }
+
+  virtual std::vector<RealType> min_eigenvalues(const size_t num_evs = std::numeric_limits<size_t>::max()) const
+  {
+    return sorted_eigenvalues(true, num_evs);
+  }
+
+  virtual std::vector<RealType> min_eigenvalues(const std::string& type,
+                                                const size_t num_evs = std::numeric_limits<size_t>::max()) const
+  {
+    return sorted_eigenvalues(true, type, num_evs);
+  }
+
+  virtual std::vector<RealType> min_eigenvalues(const Common::Configuration& opts,
+                                                const size_t num_evs = std::numeric_limits<size_t>::max()) const
+  {
+    return sorted_eigenvalues(true, opts, num_evs);
+  }
+
+  virtual std::vector<RealType> max_eigenvalues(const size_t num_evs = std::numeric_limits<size_t>::max()) const
+  {
+    return sorted_eigenvalues(false, num_evs);
+  }
+
+  virtual std::vector<RealType> max_eigenvalues(const std::string& type,
+                                                const size_t num_evs = std::numeric_limits<size_t>::max()) const
+  {
+    return sorted_eigenvalues(false, type, num_evs);
+  }
+
+  virtual std::vector<RealType> max_eigenvalues(const Common::Configuration& opts,
+                                                const size_t num_evs = std::numeric_limits<size_t>::max()) const
+  {
+    return sorted_eigenvalues(false, opts, num_evs);
+  }
 
   virtual std::vector<ComplexVectorType> eigenvectors() const
   {
@@ -202,7 +237,18 @@ public:
   } // ... real_eigenvectors_as_matrix(...)
 
 protected:
-  virtual void check_input(const Common::Configuration& opts, const Common::Configuration& default_opts) const
+  std::string parse_opts(const XT::Common::Configuration& opts) const
+  {
+    if (!opts.has_key("type"))
+      DUNE_THROW(Common::Exceptions::configuration_error,
+                 "Given options (see below) need to have at least the key 'type' set!\n\n"
+                     << opts);
+    const auto type = opts.get<std::string>("type");
+    internal::SolverUtils::check_given(type, types());
+    return type;
+  }
+
+  void check_input(const Common::Configuration& opts, const Common::Configuration& default_opts) const
   {
     const size_t rows = MatrixAbstractionType::rows(matrix_);
     const size_t cols = MatrixAbstractionType::cols(matrix_);
@@ -229,9 +275,9 @@ protected:
     } // if (check_for_inf_nan)
   } // ... check_input(...)
 
-  virtual void check_eigenvalues(const std::vector<ComplexType>& evs,
-                                 const Common::Configuration& opts,
-                                 const Common::Configuration& default_opts) const
+  void check_eigenvalues(const std::vector<std::complex<RealType>>& evs,
+                         const Common::Configuration& opts,
+                         const Common::Configuration& default_opts) const
   {
     const bool check_for_inf_nan = opts.get("check_for_inf_nan", default_opts.get<bool>("check_for_inf_nan"));
     if (check_for_inf_nan) {
@@ -270,9 +316,9 @@ protected:
 
   } // ... check_eigenvalues(...);
 
-  virtual void check_eigenvectors(const std::vector<ComplexVectorType>& evs,
-                                  const Common::Configuration& opts,
-                                  const Common::Configuration& default_opts) const
+  void check_eigenvectors(const std::vector<ComplexVectorType>& evs,
+                          const Common::Configuration& opts,
+                          const Common::Configuration& default_opts) const
   {
     const bool check_for_inf_nan = opts.get("check_for_inf_nan", default_opts.get<bool>("check_for_inf_nan"));
     if (check_for_inf_nan) {
@@ -303,7 +349,7 @@ protected:
         for (size_t jj = 0; jj < evs[ii].size(); ++jj)
           if (std::abs(evs[ii][jj].imag()) > check_eigenvectors_are_real)
             DUNE_THROW(Exceptions::eigen_solver_failed_bc_eigenvectors_are_not_real_as_requested,
-                       "Not all eigenvectors are purely real!\n   evs[" << ii << "][" << jj << ".imag(): "
+                       "Not all eigenvectors are purely real!\n   evs[" << ii << "][" << jj << "].imag(): "
                                                                         << evs[ii][jj].imag());
   } // ... check_eigenvectors(...)
 
