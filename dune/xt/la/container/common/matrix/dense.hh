@@ -281,6 +281,15 @@ public:
         yy.set_new_entry(cc, tmp_vec[cc]);
   } // void mtv(...)
 
+  void scale_entry(const size_t ii, const size_t jj, const ScalarType& alpha)
+  {
+    ensure_uniqueness();
+    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    assert(ii < rows());
+    assert(jj < cols());
+    (*backend_)[ii][jj] *= alpha;
+  } // ... scale_entry(...)
+
   void add_to_entry(const size_t ii, const size_t jj, const ScalarType& value)
   {
     ensure_uniqueness();

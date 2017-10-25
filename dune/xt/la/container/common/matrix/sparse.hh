@@ -30,11 +30,11 @@ enum class SparseFormat
   csc
 };
 
+
 // forwards
 template <class ScalarImp, SparseFormat sparse_format>
 class CommonSparseMatrix;
 
-// forwards
 template <class DenseMatrixImp, class SparseMatrixImp>
 class CommonSparseOrDenseMatrix;
 
@@ -54,6 +54,7 @@ public:
   typedef std::vector<ScalarImp> EntriesVectorType;
   typedef std::vector<size_t> IndexVectorType;
 };
+
 
 template <class DenseMatrixImp, class SparseMatrixImp>
 class CommonSparseOrDenseMatrixTraits
@@ -353,6 +354,13 @@ public:
     entries_->operator[](get_entry_index(rr, cc)) += value;
   }
 
+  inline void scale_entry(const size_t rr, const size_t cc, const ScalarType& alpha)
+  {
+    ensure_uniqueness();
+    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, rr);
+    entries_->operator[](get_entry_index(rr, cc)) *= alpha;
+  }
+
   inline ScalarType get_entry(const size_t rr, const size_t cc) const
   {
     const size_t index = get_entry_index(rr, cc, false);
@@ -512,6 +520,7 @@ private:
   mutable std::shared_ptr<std::vector<std::mutex>> mutexes_;
   mutable bool unshareable_;
 }; // class CommonSparseMatrix
+
 
 /**
  * \brief A sparse matrix implementation of the MatrixInterface with column major memory layout.
@@ -1049,6 +1058,7 @@ private:
   mutable bool unshareable_;
 }; // class CommonSparseMatrix<..., SparseFormat::csc>
 
+
 /**
  * \brief A matrix implementation checking whether the matrix is sparse enough to use sparse matrix operations.
  */
@@ -1382,6 +1392,7 @@ public:
   mutable DenseMatrixType dense_matrix_;
 }; // class CommonSparseOrDenseMatrix<...>
 
+
 template <class ScalarType = double>
 using CommonSparseMatrixCsr = CommonSparseMatrix<ScalarType, SparseFormat::csr>;
 
@@ -1424,7 +1435,6 @@ struct MatrixAbstraction<LA::CommonSparseOrDenseMatrix<DenseMatrixImp, SparseMat
 } // namespace XT
 } // namespace Dune
 
-
 // begin: this is what we need for the lib
 #if DUNE_XT_WITH_PYTHON_BINDINGS
 
@@ -1435,6 +1445,5 @@ extern template class Dune::XT::LA::CommonSparseMatrix<double, SparseFormat::csc
 
 #endif // DUNE_XT_WITH_PYTHON_BINDINGS
 // end: this is what we need for the lib
-
 
 #endif // DUNE_XT_LA_CONTAINER_COMMON_MATRIX_SPARSE_HH

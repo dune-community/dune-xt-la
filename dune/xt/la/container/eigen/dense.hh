@@ -43,19 +43,24 @@ namespace Dune {
 namespace XT {
 namespace LA {
 
+
 // forwards
 template <class ScalarImp>
 class EigenDenseVector;
 
+
 template <class T>
 class EigenMappedDenseVector;
+
 
 template <class ScalarImp>
 class EigenDenseMatrix;
 
+
 #if HAVE_EIGEN
 
 namespace internal {
+
 
 /**
  *  \brief Traits for EigenDenseVector.
@@ -73,6 +78,7 @@ public:
   static const constexpr Backends dense_matrix_type = Backends::eigen_dense;
   static const constexpr Backends sparse_matrix_type = Backends::eigen_sparse;
 }; // class EigenDenseVectorTraits
+
 
 /**
  *  \brief Traits for EigenMappedDenseVector.
@@ -92,6 +98,7 @@ public:
   static const constexpr Backends sparse_matrix_type = Backends::eigen_sparse;
 }; // class EigenMappedDenseVectorTraits
 
+
 /**
  *  \brief Traits for EigenDenseMatrix.
  */
@@ -108,7 +115,9 @@ public:
   static const constexpr Backends vector_type = Backends::eigen_dense;
 }; // class EigenDenseMatrixTraits
 
+
 } // namespace internal
+
 
 /**
  *  \brief A dense vector implementation of VectorInterface using the eigen backend.
@@ -240,6 +249,7 @@ private:
   friend class VectorInterface<internal::EigenDenseVectorTraits<ScalarType>, ScalarType>;
   friend class EigenBaseVector<internal::EigenDenseVectorTraits<ScalarType>, ScalarType>;
 }; // class EigenDenseVector
+
 
 /**
  *  \brief  A dense vector implementation of VectorInterface using the eigen backend which wrappes a raw array.
@@ -400,6 +410,7 @@ private:
   friend class VectorInterface<internal::EigenMappedDenseVectorTraits<ScalarType>, ScalarType>;
   friend class EigenBaseVector<internal::EigenMappedDenseVectorTraits<ScalarType>, ScalarType>;
 }; // class EigenMappedDenseVector
+
 
 /**
  *  \brief  A dense matrix implementation of MatrixInterface using the eigen backend.
@@ -623,6 +634,15 @@ public:
     assert(jj < cols());
     backend_ref(ii, jj) += value;
   } // ... add_to_entry(...)
+
+  void scale_entry(const size_t ii, const size_t jj, const ScalarType& alpha)
+  {
+    auto& backend_ref = backend();
+    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    assert(ii < rows());
+    assert(jj < cols());
+    backend_ref(ii, jj) *= alpha;
+  } // ... scale_entry(...)
 
   void set_entry(const size_t ii, const size_t jj, const ScalarType& value)
   {

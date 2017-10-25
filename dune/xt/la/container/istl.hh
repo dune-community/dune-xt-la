@@ -40,6 +40,7 @@ namespace Dune {
 namespace XT {
 namespace LA {
 
+
 // forward
 template <class ScalarImp>
 class IstlDenseVector;
@@ -47,9 +48,11 @@ class IstlDenseVector;
 template <class ScalarImp>
 class IstlRowMajorSparseMatrix;
 
+
 #if HAVE_DUNE_ISTL
 
 namespace internal {
+
 
 /**
  * \brief Traits for IstlDenseVector.
@@ -68,6 +71,7 @@ public:
   static const constexpr Backends sparse_matrix_type = Backends::istl_sparse;
 }; // class IstlDenseVectorTraits
 
+
 /**
  * \brief Traits for IstlRowMajorSparseMatrix.
  */
@@ -83,7 +87,9 @@ public:
   static const constexpr Backends vector_type = Backends::istl_dense;
 }; // class RowMajorSparseMatrixTraits
 
+
 } // namespace internal
+
 
 /**
  *  \brief A dense vector implementation of VectorInterface using the Dune::BlockVector from dune-istl.
@@ -389,6 +395,7 @@ private:
   mutable bool unshareable_;
 }; // class IstlDenseVector
 
+
 /**
  * \brief A sparse matrix implementation of the MatrixInterface using the Dune::BCRSMatrix from dune-istl.
  */
@@ -579,6 +586,14 @@ public:
     internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
     assert(these_are_valid_indices(ii, jj));
     backend_ref[ii][jj][0][0] += value;
+  }
+
+  void scale_entry(const size_t ii, const size_t jj, const ScalarType& alpha)
+  {
+    auto& backend_ref = backend();
+    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    assert(these_are_valid_indices(ii, jj));
+    backend_ref[ii][jj][0][0] *= alpha;
   }
 
   void set_entry(const size_t ii, const size_t jj, const ScalarType& value)

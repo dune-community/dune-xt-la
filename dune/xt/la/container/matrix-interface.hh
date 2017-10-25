@@ -80,6 +80,11 @@ public:
     CHECK_AND_CALL_CRTP(this->as_imp().add_to_entry(ii, jj, value));
   }
 
+  inline void scale_entry(const size_t ii, const size_t jj, const ScalarType& alpha)
+  {
+    CHECK_AND_CALL_CRTP(this->as_imp().scale_entry(ii, jj, alpha));
+  }
+
   inline void set_entry(const size_t ii, const size_t jj, const ScalarType& value)
   {
     CHECK_AND_CALL_CRTP(this->as_imp().set_entry(ii, jj, value));

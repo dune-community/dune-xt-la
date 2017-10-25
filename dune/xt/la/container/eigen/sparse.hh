@@ -43,6 +43,7 @@ namespace Dune {
 namespace XT {
 namespace LA {
 
+
 // forwards
 template <class ScalarType>
 class EigenRowMajorSparseMatrix;
@@ -51,9 +52,11 @@ class EigenMatrixInterfaceDynamic
 {
 };
 
+
 #if HAVE_EIGEN
 
 namespace internal {
+
 
 /**
  * \brief Traits for EigenRowMajorSparseMatrix.
@@ -70,7 +73,9 @@ public:
   static const constexpr Backends vector_type = Backends::eigen_dense;
 }; // class RowMajorSparseMatrixTraits
 
+
 } // namespace internal
+
 
 /**
  * \brief A sparse matrix implementation of the MatrixInterface with row major memory layout.
@@ -291,6 +296,15 @@ public:
     assert(these_are_valid_indices(ii, jj));
     backend_ref.coeffRef(internal::boost_numeric_cast<EIGEN_size_t>(ii),
                          internal::boost_numeric_cast<EIGEN_size_t>(jj)) += value;
+  }
+
+  void scale_entry(const size_t ii, const size_t jj, const ScalarType& alpha)
+  {
+    auto& backend_ref = backend();
+    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    assert(these_are_valid_indices(ii, jj));
+    backend_ref.coeffRef(internal::boost_numeric_cast<EIGEN_size_t>(ii),
+                         internal::boost_numeric_cast<EIGEN_size_t>(jj)) *= alpha;
   }
 
   void set_entry(const size_t ii, const size_t jj, const ScalarType& value)
