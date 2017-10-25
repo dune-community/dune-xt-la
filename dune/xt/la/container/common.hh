@@ -74,6 +74,7 @@ public:
   typedef Dune::DynamicMatrix<ScalarType> BackendType;
   static const Backends backend_type = Backends::common_dense;
   static const Backends vector_type = Backends::common_dense;
+  static const constexpr bool sparse = false;
 };
 
 template <class ScalarImp = double>
@@ -86,6 +87,7 @@ public:
   typedef std::vector<ScalarType> EntriesVectorType;
   static const Backends backend_type = Backends::common_dense;
   static const constexpr Backends vector_type = Backends::common_dense;
+  static const constexpr bool sparse = true;
 };
 
 } // namespace internal
