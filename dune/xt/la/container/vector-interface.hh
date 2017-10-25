@@ -573,7 +573,7 @@ struct is_vector<V, false> : public std::false_type
 namespace internal {
 
 template <class VectorImp>
-struct VectorAbstractionBase
+struct VectorAbstractionBase : public Common::SubscriptOperatorGetAndSet<VectorImp, typename VectorImp::ScalarType>
 {
   static const bool is_vector = LA::is_vector<VectorImp>::value;
 
