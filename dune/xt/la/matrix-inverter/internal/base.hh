@@ -69,23 +69,35 @@ public:
   /**
    * \attention The implementor has to call compute() in the ctor if (delay_computation == true).
    */
-  MatrixInverterBase(const MatrixType& matrix, const std::string& type = "")
+  MatrixInverterBase(const MatrixType& matrix,
+                     const std::string& type = "",
+                     bool disable_checks_in_release_builds = false)
     : matrix_(matrix)
     , options_(MatrixInverterOptions<MatrixType>::options(type))
     , inverse_(nullptr)
+    , disable_checks_in_release_builds_(disable_checks_in_release_builds)
   {
-    pre_checks();
+#ifdef NDEBUG
+    if (!disable_checks_in_release_builds_)
+#endif
+      pre_checks();
   }
 
   /**
    * \attention The implementor has to call compute() in the ctor if (delay_computation == true).
    */
-  MatrixInverterBase(const MatrixType& matrix, const Common::Configuration opts)
+  MatrixInverterBase(const MatrixType& matrix,
+                     const Common::Configuration opts,
+                     bool disable_checks_in_release_builds = false)
     : matrix_(matrix)
     , options_(opts)
     , inverse_(nullptr)
+    , disable_checks_in_release_builds_(disable_checks_in_release_builds)
   {
-    pre_checks();
+#ifdef NDEBUG
+    if (!disable_checks_in_release_builds_)
+#endif
+      pre_checks();
   }
 
   virtual ~MatrixInverterBase() = default;
@@ -154,60 +166,66 @@ protected:
 
   void post_checks() const
   {
-    if (!inverse_)
-      DUNE_THROW(Common::Exceptions::internal_error, "The inverse_ member is not filled after calling compute()!");
-    const Common::Configuration default_opts =
-        MatrixInverterOptions<MatrixType>::options(options_.get<std::string>("type"));
-    if (options_.get("check_for_inf_nan", default_opts.get<bool>("check_for_inf_nan"))) {
-      if (contains_inf_or_nan(*inverse_))
-        DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_contained_inf_or_nan,
-                   "Computed inverse contains inf or nan and you requested checking. To disable this check set "
-                   "'check_for_inf_nan' to false in the options."
-                       << "\n\nThese were the given options:\n\n"
-                       << options_
-                       << "\nThis was the given matrix:\n\n"
-                       << matrix_
-                       << "\n\nThis was the computed inverse:\n\n"
-                       << *inverse_);
+#ifdef NDEBUG
+    if (!disable_checks_in_release_builds_) {
+#endif
+      if (!inverse_)
+        DUNE_THROW(Common::Exceptions::internal_error, "The inverse_ member is not filled after calling compute()!");
+      const Common::Configuration default_opts =
+          MatrixInverterOptions<MatrixType>::options(options_.get<std::string>("type"));
+      if (options_.get("check_for_inf_nan", default_opts.get<bool>("check_for_inf_nan"))) {
+        if (contains_inf_or_nan(*inverse_))
+          DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_contained_inf_or_nan,
+                     "Computed inverse contains inf or nan and you requested checking. To disable this check set "
+                     "'check_for_inf_nan' to false in the options."
+                         << "\n\nThese were the given options:\n\n"
+                         << options_
+                         << "\nThis was the given matrix:\n\n"
+                         << matrix_
+                         << "\n\nThis was the computed inverse:\n\n"
+                         << *inverse_);
+      }
+      const auto left_inverse_check =
+          options_.get("post_check_is_left_inverse", default_opts.get<double>("post_check_is_left_inverse"));
+      if (left_inverse_check > 0) {
+        const auto eye = eye_matrix<MatrixType>(Common::get_matrix_cols(matrix_), Common::get_matrix_cols(matrix_));
+        if (sup_norm(*inverse_ * matrix_ - eye) > left_inverse_check)
+          DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_is_not_a_left_inverse,
+                     "Computed inverse is not a left inverse and you requested checking. To disable this check set "
+                     "'post_check_is_left_inverse' to 0 in the options."
+                         << "\n\nThe error is ||M_inv * M - Identity||_L_\\infty = "
+                         << sup_norm(*inverse_ * matrix_ - eye)
+                         << "\n\nThese were the given options:\n\n"
+                         << options_
+                         << "\nThis was the given matrix M:\n\n"
+                         << matrix_
+                         << "\n\nThis is its computed inverse M_inv:\n\n"
+                         << *inverse_
+                         << "\n\nThis is M_inv * M\n\n"
+                         << *inverse_ * matrix_);
+      }
+      const auto right_inverse_check =
+          options_.get("post_check_is_right_inverse", default_opts.get<double>("post_check_is_right_inverse"));
+      if (right_inverse_check > 0) {
+        const auto eye = eye_matrix<MatrixType>(Common::get_matrix_rows(matrix_), Common::get_matrix_rows(matrix_));
+        if (sup_norm(matrix_ * *inverse_ - eye) > right_inverse_check)
+          DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_is_not_a_right_inverse,
+                     "Computed inverse is not a right inverse and you requested checking. To disable this check set "
+                     "'post_check_is_right_inverse' to 0 in the options."
+                         << "\n\nThe error is ||M_inv * M - Identity||_L_\\infty = "
+                         << sup_norm(matrix_ * *inverse_ - eye)
+                         << "\n\nThese were the given options:\n\n"
+                         << options_
+                         << "\nThis was the given matrix M:\n\n"
+                         << matrix_
+                         << "\n\nThis is its computed inverse M_inv:\n\n"
+                         << *inverse_
+                         << "\n\nThis is M * M_inv\n\n"
+                         << matrix_ * *inverse_);
+      }
+#ifdef NDEBUG
     }
-    const auto left_inverse_check =
-        options_.get("post_check_is_left_inverse", default_opts.get<double>("post_check_is_left_inverse"));
-    if (left_inverse_check > 0) {
-      const auto eye = eye_matrix<MatrixType>(Common::get_matrix_cols(matrix_), Common::get_matrix_cols(matrix_));
-      if (sup_norm(*inverse_ * matrix_ - eye) > left_inverse_check)
-        DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_is_not_a_left_inverse,
-                   "Computed inverse is not a left inverse and you requested checking. To disable this check set "
-                   "'post_check_is_left_inverse' to 0 in the options."
-                       << "\n\nThe error is ||M_inv * M - Identity||_L_\\infty = "
-                       << sup_norm(*inverse_ * matrix_ - eye)
-                       << "\n\nThese were the given options:\n\n"
-                       << options_
-                       << "\nThis was the given matrix M:\n\n"
-                       << matrix_
-                       << "\n\nThis is its computed inverse M_inv:\n\n"
-                       << *inverse_
-                       << "\n\nThis is M_inv * M\n\n"
-                       << *inverse_ * matrix_);
-    }
-    const auto right_inverse_check =
-        options_.get("post_check_is_right_inverse", default_opts.get<double>("post_check_is_right_inverse"));
-    if (right_inverse_check > 0) {
-      const auto eye = eye_matrix<MatrixType>(Common::get_matrix_rows(matrix_), Common::get_matrix_rows(matrix_));
-      if (sup_norm(matrix_ * *inverse_ - eye) > right_inverse_check)
-        DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_is_not_a_right_inverse,
-                   "Computed inverse is not a right inverse and you requested checking. To disable this check set "
-                   "'post_check_is_right_inverse' to 0 in the options."
-                       << "\n\nThe error is ||M_inv * M - Identity||_L_\\infty = "
-                       << sup_norm(matrix_ * *inverse_ - eye)
-                       << "\n\nThese were the given options:\n\n"
-                       << options_
-                       << "\nThis was the given matrix M:\n\n"
-                       << matrix_
-                       << "\n\nThis is its computed inverse M_inv:\n\n"
-                       << *inverse_
-                       << "\n\nThis is M * M_inv\n\n"
-                       << matrix_ * *inverse_);
-    }
+#endif
   } // ... post_checks(...)
 
   template <class M>
@@ -253,6 +271,7 @@ protected:
   const MatrixType& matrix_;
   const Common::Configuration options_;
   mutable std::unique_ptr<MatrixType> inverse_;
+  const bool disable_checks_in_release_builds_;
 }; // class MatrixInverterBase
 
 

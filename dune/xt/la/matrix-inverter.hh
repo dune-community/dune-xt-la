@@ -108,7 +108,7 @@ MatrixInverter<M> make_matrix_inverter(const M& matrix, const XT::Common::Config
 
 template <class M>
 typename std::enable_if<is_matrix<M>::value || Common::is_matrix<M>::value, M>::type
-invert_matrix(const M& matrix, const std::string& inversion_type = "")
+invert_matrix(const M& matrix, const std::string& inversion_type = "", const bool disable_checks = false)
 {
   return MatrixInverter<M>(matrix, inversion_type).inverse();
 }
@@ -116,9 +116,9 @@ invert_matrix(const M& matrix, const std::string& inversion_type = "")
 
 template <class M>
 typename std::enable_if<is_matrix<M>::value || Common::is_matrix<M>::value, M>::type
-invert_matrix(const M& matrix, const XT::Common::Configuration& inversion_options)
+invert_matrix(const M& matrix, const XT::Common::Configuration& inversion_options, const bool disable_checks = false)
 {
-  return MatrixInverter<M>(matrix, inversion_options).inverse();
+  return MatrixInverter<M>(matrix, inversion_options, disable_checks).inverse();
 }
 
 
