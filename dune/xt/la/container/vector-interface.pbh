@@ -145,10 +145,22 @@ typename std::enable_if<is_vector<C>::value, pybind11::class_<C>>::type bind_Vec
         [](const C& self, const C& other, const S& epsilon) { return self.almost_equal(other, epsilon); },
         "other"_a,
         "epsilon"_a = Common::FloatCmp::DefaultEpsilon<S>::value());
-  c.def("dot", [](const C& self, const C& other) { return self.dot(other); });
-  c.def("l1_norm", [](const C& self) { return self.l1_norm(); });
-  c.def("l2_norm", [](const C& self) { return self.l2_norm(); });
-  c.def("sup_norm", [](const C& self) { return self.sup_norm(); });
+  c.def("dot", [](const C& self, const C& other) {
+    py::gil_scoped_release DUNE_UNUSED(release);
+    return self.dot(other);
+  });
+  c.def("l1_norm", [](const C& self) {
+    py::gil_scoped_release DUNE_UNUSED(release);
+    return self.l1_norm();
+  });
+  c.def("l2_norm", [](const C& self) {
+    py::gil_scoped_release DUNE_UNUSED(release);
+    return self.l2_norm();
+  });
+  c.def("sup_norm", [](const C& self) {
+    py::gil_scoped_release DUNE_UNUSED(release);
+    return self.sup_norm();
+  });
   c.def("standard_deviation", [](const C& self) { return self.standard_deviation(); });
   c.def("to_file",
         [](const C& self, const std::string& filename, const std::string& mode) { to_file(self, filename, mode); },

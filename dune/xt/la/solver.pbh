@@ -43,14 +43,24 @@ typename std::enable_if<is_matrix<M>::value, pybind11::class_<Solver<M>>>::type 
 
   c.def(py::init<M>());
 
-  c.def("apply", [](const C& self, const V& rhs, V& solution) { self.apply(rhs, solution); }, "rhs"_a, "solution"_a);
   c.def("apply",
-        [](const C& self, const V& rhs, V& solution, const std::string& type) { self.apply(rhs, solution, type); },
+        [](const C& self, const V& rhs, V& solution) {
+          py::gil_scoped_release DUNE_UNUSED(release);
+          self.apply(rhs, solution);
+        },
+        "rhs"_a,
+        "solution"_a);
+  c.def("apply",
+        [](const C& self, const V& rhs, V& solution, const std::string& type) {
+          py::gil_scoped_release DUNE_UNUSED(release);
+          self.apply(rhs, solution, type);
+        },
         "rhs"_a,
         "solution"_a,
         "type"_a);
   c.def("apply",
         [](const C& self, const V& rhs, V& solution, const Common::Configuration& options) {
+          py::gil_scoped_release DUNE_UNUSED(release);
           self.apply(rhs, solution, options);
         },
         "rhs"_a,
