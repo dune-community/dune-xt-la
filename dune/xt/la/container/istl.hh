@@ -800,7 +800,8 @@ namespace Common {
 #if HAVE_DUNE_ISTL
 
 template <class T>
-struct VectorAbstraction<LA::IstlDenseVector<T>> : public LA::internal::VectorAbstractionBase<LA::IstlDenseVector<T>>
+struct VectorAbstraction<LA::IstlDenseVector<T>> : public LA::internal::VectorAbstractionBase<LA::IstlDenseVector<T>>,
+                                                   public SubscriptOperatorGetAndSet<LA::IstlDenseVector<T>, T>
 {
 };
 
