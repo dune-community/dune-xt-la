@@ -232,6 +232,50 @@ typename std::enable_if<is_matrix<C>::value, pybind11::class_<C>>::type bind_Mat
       "min_cols"_a = -1,
       "mode"_a = "ascii");
 
+  c.def("__getstate__", [](const C& self) {
+    auto pattern = self.pattern();
+    size_t counter = 0;
+    std::vector<std::vector<size_t>> simple_pattern(pattern.size());
+    for (size_t ii = 0; ii < pattern.size(); ++ii) {
+      simple_pattern[ii] = std::vector<size_t>();
+      for (const auto& jj : pattern.inner(ii)) {
+        simple_pattern[ii].push_back(jj);
+        ++counter;
+      }
+    }
+    std::vector<S> data(counter);
+    counter = 0;
+    for (size_t ii = 0; ii < pattern.size(); ++ii)
+      for (const auto& jj : pattern.inner(ii)) {
+        data[counter] = self.get_entry(ii, jj);
+        counter++;
+      }
+    return py::make_tuple(simple_pattern, data);
+  });
+  c.def("__setstate__", [](C& self, py::tuple t) {
+    if (t.size() != 2)
+      throw std::runtime_error("Invalid state!");
+    auto simple_pattern = t[0].cast<std::vector<std::vector<size_t>>>();
+    auto data = t[1].cast<std::vector<S>>();
+    /* Invoke the in-place constructor. Note that this is needed even
+    when the object just has a trivial default constructor */
+    SparsityPatternDefault pattern(simple_pattern.size());
+    for (size_t ii = 0; ii < simple_pattern.size(); ++ii) {
+      for (const auto& jj : simple_pattern[ii]) {
+        pattern.insert(ii, jj);
+      }
+    }
+    pattern.sort();
+    new (&self) C(pattern.size(), pattern.size(), pattern);
+    /* Assign any additional state */
+    size_t counter = 0;
+    for (size_t ii = 0; ii < pattern.size(); ++ii)
+      for (const auto& jj : pattern.inner(ii)) {
+        self.set_entry(ii, jj, data[counter]);
+        ++counter;
+      }
+  });
+
   addbind_ContainerInterface(c);
 
   return c;
