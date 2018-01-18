@@ -62,6 +62,15 @@ class Solver
 public:
   typedef MatrixImp MatrixType;
 
+  Solver(const MatrixType& /*matrix*/, const CommunicatorType&)
+  {
+    DUNE_THROW(NotImplemented,
+               "This is the unspecialized version of LA::Solver< ... >. "
+               "Please include the correct header for your matrix implementation '"
+                   << Common::Typename<MatrixType>::value()
+                   << "'!");
+  }
+
   Solver(const MatrixType& /*matrix*/)
   {
     DUNE_THROW(NotImplemented,
@@ -137,6 +146,21 @@ typename std::enable_if<XT::LA::is_matrix<M>::value && XT::LA::is_vector<V>::val
 solve(const M& A, const V& b, V& x, Args&&... args)
 {
   make_solver(A).apply(b, x, std::forward<Args>(args)...);
+}
+
+
+template <class M, class C>
+typename std::enable_if<XT::LA::is_matrix<M>::value, Solver<M, C>>::type make_solver(const M& matrix, const C& dof_comm)
+{
+  return Solver<M, C>(matrix, dof_comm);
+}
+
+
+template <class M, class V, class C, class... Args>
+typename std::enable_if<XT::LA::is_matrix<M>::value && XT::LA::is_vector<V>::value, void>::type
+solve(const M& A, const V& b, V& x, const C& dof_comm, Args&&... args)
+{
+  make_solver(A, dof_comm).apply(b, x, std::forward<Args>(args)...);
 }
 
 
