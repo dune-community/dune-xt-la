@@ -45,36 +45,21 @@ void prepare_sym_tridiag_posdef(
     diagonal_elements[ii] = A[ii * dimRange + ii];
   for (size_t ii = 1; ii < dimRange; ++ii)
     sub_diagonal_elements[ii - 1] = A[ii * dimRange + (ii - 1)];
-} // void prepare_sym_triadiag_posdef(...)
+} // void prepare_sym_tridiag_posdef(...)
 
-
-double solve_sym_tridiag_posdef(
-    size_t dimRange, double* diagonal_elements, double* sub_diagonal_elements, double anorm, double* b)
+double solve_sym_tridiag_posdef(size_t dimRange, double* diagonal_elements, double* sub_diagonal_elements, double* b)
 {
   auto info = Common::Lapacke::dpttrf(dimRange, diagonal_elements, sub_diagonal_elements);
-  if (info) {
-    std::cout << "factorization failed" << std::endl;
-    DUNE_THROW(Dune::MathError, "factorization failed");
-  }
-
-  // estimate condition of H_k
-  double inverse_condition;
-  info = Common::Lapacke::dptcon(dimRange, diagonal_elements, sub_diagonal_elements, anorm, &inverse_condition);
   if (info)
-    DUNE_THROW(Dune::MathError, "condition estimation failed");
-  if (inverse_condition < 1e-20) {
-    std::cout << "inverse_condition_failed" << std::endl;
-    DUNE_THROW(Dune::MathError, "matrix singular");
-  }
+    DUNE_THROW(Dune::MathError, "Factorization failed");
 
   // solve system
   info = Common::Lapacke::dpttrs(
       Common::Lapacke::row_major(), dimRange, 1, diagonal_elements, sub_diagonal_elements, b, 1);
-  if (info) {
-    std::cout << "solving system failed" << std::endl;
+  if (info)
     DUNE_THROW(Dune::MathError, "solving system failed");
-  }
-  return inverse_condition;
+
+  //  return inverse_condition;
 }
 
 
