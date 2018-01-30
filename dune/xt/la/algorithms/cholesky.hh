@@ -16,6 +16,7 @@
 #include <dune/common/math.hh>
 
 #include <dune/xt/common/float_cmp.hh>
+#include <dune/xt/common/lapacke.hh>
 
 #include <dune/xt/la/container/common/matrix/sparse.hh>
 #include <dune/xt/la/container/common/vector/sparse.hh>
@@ -24,6 +25,23 @@ namespace Dune {
 namespace XT {
 namespace LA {
 
+
+template <class FirstVectorImp, class SecondVectorImp>
+bool tridiagonal_cholesky(DenseVector<FirstVectorImp>& diag, DenseVector<SecondVectorImp>& subdiag)
+{
+  assert(subdiag.size() == diag.size() - 1);
+  return !Common::Lapacke::dpttrf(diag.size(), &(diag[0]), &(subdiag[0]));
+}
+
+template <class FirstVectorImp, class SecondVectorImp, class MatrixImp>
+bool solve_tridiagonal_cholesky_factorized(const DenseVector<FirstVectorImp>& diag,
+                                           const DenseVector<SecondVectorImp>& subdiag,
+                                           DenseMatrix<MatrixImp>& ret)
+{
+  assert(subdiag.size() == diag.size() - 1);
+  return !Common::Lapacke::dpttrs(
+      Common::Lapacke::row_major(), diag.size(), ret.cols(), &(diag[0]), &(subdiag[0]), &(ret[0][0]), ret.cols());
+}
 
 // copied and adapted from dune/geometry/affinegeometry.hh
 template <class FirstMatrixImp, class SecondMatrixImp>

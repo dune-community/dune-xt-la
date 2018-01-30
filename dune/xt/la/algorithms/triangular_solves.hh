@@ -16,7 +16,9 @@
 #include <dune/common/fmatrix.hh>
 
 #include <dune/xt/common/float_cmp.hh>
+#include <dune/xt/common/lapacke.hh>
 
+#include <dune/xt/la/algorithms/solve_qr_factorized.hh>
 #include <dune/xt/la/container/common/matrix/sparse.hh>
 #include <dune/xt/la/container/common/vector/sparse.hh>
 
@@ -34,6 +36,10 @@ void solve_lower_triangular(const Dune::DenseMatrix<MatrixImp>& A,
                             Dune::DenseVector<VectorImp>& x,
                             const Dune::DenseVector<VectorImp>& b)
 {
+#if HAVE_LAPACKE
+  std::copy_n(b.begin(), x.size(), x.begin());
+  solve_lower_triangular(&(A[0][0]), &(x[0]), A.rows());
+#else // HAVE_LAPACKE
   const size_t num_rows = A.rows();
   // copy assignment operator does not work correctly for DenseVector,
   // so we need to cast it to the derived type first
@@ -45,6 +51,7 @@ void solve_lower_triangular(const Dune::DenseMatrix<MatrixImp>& A,
       rhs[ii] -= A[ii][jj] * x[jj];
     x[ii] = rhs[ii] / A[ii][ii];
   }
+#endif HAVE_LAPACKE
 } // void solve_lower_triangular(Dune::DenseMatrix, ...)
 
 template <class MatrixImp, class ScalarType>
@@ -313,6 +320,22 @@ void solve_lower_triangular_transposed(const Dune::DenseMatrix<MatrixImp>& A,
                                        Dune::DenseVector<FirstVectorImp>& x,
                                        const Dune::DenseVector<SecondVectorImp>& b)
 {
+#if HAVE_LAPACKE
+  std::copy_n(b.begin(), x.size(), x.begin());
+  solve_lower_triangular_transposed(&(A[0][0]), &(x[0]), A.rows());
+#else HAVE_LAPACKE
+  // get min and max eigenvalue
+  //  double min_eigval = std::numeric_limits<double>::max();
+  //  double max_eigval = 0.;
+  //  for (size_t ii = 0; ii < A.N(); ++ii) {
+  //    min_eigval = std::min(min_eigval, std::abs(A[ii][ii]));
+  //    max_eigval = std::max(max_eigval, std::abs(A[ii][ii]));
+  //  }
+  //  auto condition = max_eigval / min_eigval;
+  //  if (condition > 1e20 || std::isnan(condition))
+  //    DUNE_THROW(Dune::MathError, "Matrix is singular!");
+
+  // solve system
   // copy assignment operator does not work correctly for DenseVector,
   // so we need to cast it to the derived type first
   auto& rhs = static_cast<FirstVectorImp&>(x); // use x to store rhs
@@ -323,13 +346,25 @@ void solve_lower_triangular_transposed(const Dune::DenseMatrix<MatrixImp>& A,
       rhs[ii] -= A[jj][ii] * x[jj];
     x[ii] = rhs[ii] / A[ii][ii];
   }
+//  return condition;
+#endif HAVE_LAPACKE
 }
 
 template <class MatrixTraits, class FirstVectorImp, class SecondVectorImp>
-void solve_lower_triangular_transposed(const MatrixInterface<MatrixTraits, typename MatrixTraits::ScalarType>& A,
-                                       Dune::DenseVector<FirstVectorImp>& x,
-                                       const Dune::DenseVector<SecondVectorImp>& b)
+double solve_lower_triangular_transposed(const MatrixInterface<MatrixTraits, typename MatrixTraits::ScalarType>& A,
+                                         Dune::DenseVector<FirstVectorImp>& x,
+                                         const Dune::DenseVector<SecondVectorImp>& b)
 {
+  auto min_eigval = std::abs(A.get_entry(0, 0));
+  auto max_eigval = min_eigval;
+  for (size_t ii = 0; ii < A.cols(); ++ii) {
+    min_eigval = std::min(min_eigval, std::abs(A.get_entry(ii, ii)));
+    max_eigval = std::max(max_eigval, std::abs(A.get_entry(ii, ii)));
+  }
+  auto condition = max_eigval / min_eigval;
+  if (condition > 1e10 || std::isnan(condition))
+    DUNE_THROW(Dune::MathError, "Matrix is singular!");
+
   // copy assignment operator does not work correctly for DenseVector,
   // so we need to cast it to the derived type first
   auto& rhs = static_cast<FirstVectorImp&>(x); // use x to store rhs
@@ -340,6 +375,7 @@ void solve_lower_triangular_transposed(const MatrixInterface<MatrixTraits, typen
       rhs[ii] -= A.get_entry(jj, ii) * x[jj];
     x[ii] = rhs[ii] / A.get_entry(ii, ii);
   }
+  return condition;
 }
 
 template <class MatrixTraits, class FirstVectorImp, class SecondVectorTraits>
@@ -445,12 +481,14 @@ void solve_lower_triangular_transposed(const CommonSparseOrDenseMatrix<DenseMatr
 } // void solve_lower_triangular_transposed(CommonSparseMatrixCsc, ...)
 
 template <class FieldType>
-void solve_lower_triangular_transposed(const Dune::FieldMatrix<FieldType, 2, 2>& A,
-                                       Dune::FieldVector<FieldType, 2>& x,
-                                       const Dune::FieldVector<FieldType, 2>& b)
+double solve_lower_triangular_transposed(const Dune::FieldMatrix<FieldType, 2, 2>& A,
+                                         Dune::FieldVector<FieldType, 2>& x,
+                                         const Dune::FieldVector<FieldType, 2>& b)
 {
+  auto condition = (std::abs(A[0][0]) > std::abs(A[1][1])) ? std::abs(A[0][0] / A[1][1]) : std::abs(A[1][1] / A[0][0]);
   x[1] = b[1] / A[1][1];
   x[0] = (b[0] - A[1][0] * x[1]) / A[0][0];
+  return condition;
 } // void solve_lower_triangular
 
 
