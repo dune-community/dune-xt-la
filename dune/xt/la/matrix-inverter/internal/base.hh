@@ -189,13 +189,13 @@ protected:
       const auto left_inverse_check =
           options_.get("post_check_is_left_inverse", default_opts.get<double>("post_check_is_left_inverse"));
       if (left_inverse_check > 0) {
-        const auto eye = eye_matrix<MatrixType>(Common::get_matrix_cols(matrix_), Common::get_matrix_cols(matrix_));
-        if (sup_norm(*inverse_ * matrix_ - eye) > left_inverse_check)
+        const auto eye = eye_matrix_ptr<MatrixType>(Common::get_matrix_cols(matrix_), Common::get_matrix_cols(matrix_));
+        if (sup_norm(*(inverse_ * matrix_) - *eye) > left_inverse_check)
           DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_is_not_a_left_inverse,
                      "Computed inverse is not a left inverse and you requested checking. To disable this check set "
                      "'post_check_is_left_inverse' to 0 in the options."
                          << "\n\nThe error is ||M_inv * M - Identity||_L_\\infty = "
-                         << sup_norm(*inverse_ * matrix_ - eye)
+                         << sup_norm(*(inverse_ * matrix_) - *eye)
                          << "\n\nThese were the given options:\n\n"
                          << options_
                          << "\nThis was the given matrix M:\n\n"
@@ -208,13 +208,13 @@ protected:
       const auto right_inverse_check =
           options_.get("post_check_is_right_inverse", default_opts.get<double>("post_check_is_right_inverse"));
       if (right_inverse_check > 0) {
-        const auto eye = eye_matrix<MatrixType>(Common::get_matrix_rows(matrix_), Common::get_matrix_rows(matrix_));
-        if (sup_norm(matrix_ * *inverse_ - eye) > right_inverse_check)
+        const auto eye = eye_matrix_ptr<MatrixType>(Common::get_matrix_rows(matrix_), Common::get_matrix_rows(matrix_));
+        if (sup_norm(*(matrix_ * inverse_) - *eye) > right_inverse_check)
           DUNE_THROW(Exceptions::matrix_invert_failed_bc_result_is_not_a_right_inverse,
                      "Computed inverse is not a right inverse and you requested checking. To disable this check set "
                      "'post_check_is_right_inverse' to 0 in the options."
                          << "\n\nThe error is ||M_inv * M - Identity||_L_\\infty = "
-                         << sup_norm(matrix_ * *inverse_ - eye)
+                         << sup_norm(*(matrix_ * inverse_) - *eye)
                          << "\n\nThese were the given options:\n\n"
                          << options_
                          << "\nThis was the given matrix M:\n\n"

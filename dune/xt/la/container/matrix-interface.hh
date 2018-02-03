@@ -471,6 +471,16 @@ struct MatrixAbstractionBase
     return MatrixType(rows, cols, val);
   }
 
+  static inline std::unique_ptr<MatrixType> create_dynamic(const size_t rows, const size_t cols)
+  {
+    return std::make_unique<MatrixType>(rows, cols);
+  }
+
+  static inline std::unique_ptr<MatrixType> create_dynamic(const size_t rows, const size_t cols, const ScalarType& val)
+  {
+    return std::make_unique<MatrixType>(rows, cols, val);
+  }
+
   static inline typename std::enable_if<is_matrix, size_t>::type rows(const MatrixType& mat)
   {
     return mat.rows();

@@ -654,11 +654,10 @@ protected:
     assert(eigenvectors_ && "This must not happen when you call this function!");
     try {
       if (options_.has_sub("matrix-inverter")) {
-        eigenvectors_inverse_ = std::make_unique<ComplexMatrixType>(
-            invert_matrix(*eigenvectors_, options_.sub("matrix-inverter"), disable_checks_in_release_builds_));
-      } else
         eigenvectors_inverse_ =
-            std::make_unique<ComplexMatrixType>(invert_matrix(*eigenvectors_, "", disable_checks_in_release_builds_));
+            invert_matrix(*eigenvectors_, options_.sub("matrix-inverter"), disable_checks_in_release_builds_);
+      } else
+        eigenvectors_inverse_ = invert_matrix(*eigenvectors_, "", disable_checks_in_release_builds_);
     } catch (const Exceptions::matrix_invert_failed& ee) {
       DUNE_THROW(Exceptions::eigen_solver_failed,
                  "The computed matrix of eigenvectors is not invertible!"
@@ -680,11 +679,9 @@ protected:
     assert(real_eigenvectors_ && "This must not happen when you call this function!");
     try {
       if (options_.has_sub("matrix-inverter")) {
-        real_eigenvectors_inverse_ =
-            std::make_unique<MatrixType>(invert_matrix(*real_eigenvectors_, options_.sub("matrix-inverter")));
+        real_eigenvectors_inverse_ = invert_matrix(*real_eigenvectors_, options_.sub("matrix-inverter"));
       } else
-        real_eigenvectors_inverse_ =
-            std::make_unique<MatrixType>(invert_matrix(*real_eigenvectors_, "", disable_checks_in_release_builds_));
+        real_eigenvectors_inverse_ = invert_matrix(*real_eigenvectors_, "", disable_checks_in_release_builds_);
     } catch (const Exceptions::matrix_invert_failed& ee) {
       DUNE_THROW(Exceptions::eigen_solver_failed,
                  "The computed matrix of real eigenvectors is not invertible!"
