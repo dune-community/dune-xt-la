@@ -26,7 +26,7 @@ namespace XT {
 namespace LA {
 
 // Solves Ax = b, where A is lower triangular. b is overwritten with the solution x.
-void solve_lower_triangular(const double* A, double* b, int rows)
+void solve_lower_triangular(const double* A, double* b, const int rows)
 {
   Common::Blas::dtrsm(Common::Blas::row_major(),
                       Common::Blas::left(),
@@ -43,7 +43,7 @@ void solve_lower_triangular(const double* A, double* b, int rows)
 }
 
 // Solves A^T x = b, where A is lower triangular. b is overwritten with the solution x.
-void solve_lower_triangular_transposed(const double* A, double* b, int rows, bool check = false)
+void solve_lower_triangular_transposed(const double* A, double* b, const int rows, const bool check)
 {
   Common::Blas::dtrsm(Common::Blas::row_major(),
                       Common::Blas::left(),
@@ -61,7 +61,7 @@ void solve_lower_triangular_transposed(const double* A, double* b, int rows, boo
 }
 
 // Solves Ax = b, where A is upper triangular. b is overwritten with the solution x.
-void solve_upper_triangular(const double* A, double* b, int rows)
+void solve_upper_triangular(const double* A, double* b, const int rows)
 {
   Common::Blas::dtrsm(Common::Blas::row_major(),
                       Common::Blas::left(),
@@ -79,7 +79,7 @@ void solve_upper_triangular(const double* A, double* b, int rows)
 
 // Solves Ax = b, where AP = QR
 void solve_qr_factorized(
-    const double* QR, double* b, int rows, const int* permutations, const double* tau, double* work)
+    const double* QR, double* b, const int rows, const int* permutations, const double* tau, double* work)
 {
   // Calculate c = Q^T b;
   auto info = Common::Lapacke::dormqr(Common::Lapacke::row_major(), 'L', 'T', rows, 1, rows, QR, rows, tau, b, 1);

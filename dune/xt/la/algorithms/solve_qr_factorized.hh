@@ -17,11 +17,11 @@ namespace Dune {
 namespace XT {
 namespace LA {
 
-void solve_lower_triangular(const double* A, double* b, int rows);
+void solve_lower_triangular(const double* A, double* b, const int rows);
 
-void solve_lower_triangular_transposed(const double* A, double* b, int rows);
+void solve_lower_triangular_transposed(const double* A, double* b, const int rows, const bool check = false);
 
-void solve_upper_triangular(const double* A, double* b, int rows);
+void solve_upper_triangular(const double* A, double* b, const int rows);
 
 /**  \brief Solves linear equation A*x = b for a matrix A that has been QR factorized by XT::LA::qr
   * \param[in] A triangular matrix
@@ -32,8 +32,8 @@ void solve_upper_triangular(const double* A, double* b, int rows);
   * \param[in] tau Multipliers from the QR factorization
   * \attention This function depends on LAPACKE. If LAPACKE is not found an error is thrown.
   */
-double
-solve_qr_factorized(const double* A, double* b, int rows, const int* permutations, const double* tau, double* work);
+double solve_qr_factorized(
+    const double* A, double* b, const int rows, const int* permutations, const double* tau, double* work);
 
 
 } // namespace LA
