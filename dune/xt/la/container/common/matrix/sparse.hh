@@ -1447,6 +1447,12 @@ public:
     return MatrixInterfaceType::operator std::unique_ptr<Dune::FieldMatrix<ScalarType, ROWS, COLS>>();
   }
 
+  template <int ROWS, int COLS>
+  explicit operator std::unique_ptr<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>() const
+  {
+    return MatrixInterfaceType::operator std::unique_ptr<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>();
+  }
+
   explicit operator Dune::DynamicMatrix<ScalarType>() const
   {
     return MatrixInterfaceType::operator Dune::DynamicMatrix<ScalarType>();

@@ -330,6 +330,15 @@ public:
     return ret;
   }
 
+  template <int ROWS, int COLS>
+  explicit operator std::unique_ptr<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>() const
+  {
+    auto ret = XT::Common::make_unique<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>(ScalarType(0));
+    CHECK_CRTP(this->as_imp().copy_to_densematrix(*ret));
+    this->as_imp().copy_to_densematrix(*ret);
+    return ret;
+  }
+
   explicit operator Dune::DynamicMatrix<ScalarType>() const
   {
     Dune::DynamicMatrix<ScalarType> ret(rows(), cols(), ScalarType(0));

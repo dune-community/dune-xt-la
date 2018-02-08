@@ -335,7 +335,6 @@ void solve_lower_triangular_transposed(const Dune::DenseMatrix<MatrixImp>& A,
       rhs[ii] -= A[jj][ii] * x[jj];
     x[ii] = rhs[ii] / A[ii][ii];
   }
-//  return condition;
 #endif HAVE_LAPACKE
 }
 
