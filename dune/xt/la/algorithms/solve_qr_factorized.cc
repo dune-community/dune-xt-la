@@ -91,7 +91,7 @@ void solve_qr_factorized(
 
   // Undo permutations
   std::copy_n(b, rows, work);
-  for (size_t ii = 0; ii < rows; ++ii)
+  for (int ii = 0; ii < rows; ++ii)
     b[permutations[ii] - 1] = work[ii];
 }
 
