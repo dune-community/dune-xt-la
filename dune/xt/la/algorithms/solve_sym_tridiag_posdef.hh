@@ -33,7 +33,7 @@ void prepare_sym_tridiag_posdef(
   * \returns estimate of inverse of the condition of the matrix
   * \attention This function depends on LAPACKE. If LAPACKE is not found an error is thrown.
   */
-double solve_sym_tridiag_posdef(size_t dimRange, double* diagonal_elements, double* sub_diagonal_elements, double* b);
+void solve_sym_tridiag_posdef(size_t dimRange, double* diagonal_elements, double* sub_diagonal_elements, double* b);
 
 
 } // namespace LA

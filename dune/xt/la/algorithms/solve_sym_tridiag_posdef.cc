@@ -47,7 +47,7 @@ void prepare_sym_tridiag_posdef(
     sub_diagonal_elements[ii - 1] = A[ii * dimRange + (ii - 1)];
 } // void prepare_sym_tridiag_posdef(...)
 
-double solve_sym_tridiag_posdef(size_t dimRange, double* diagonal_elements, double* sub_diagonal_elements, double* b)
+void solve_sym_tridiag_posdef(size_t dimRange, double* diagonal_elements, double* sub_diagonal_elements, double* b)
 {
   auto info = Common::Lapacke::dpttrf(dimRange, diagonal_elements, sub_diagonal_elements);
   if (info)
@@ -58,8 +58,6 @@ double solve_sym_tridiag_posdef(size_t dimRange, double* diagonal_elements, doub
       Common::Lapacke::row_major(), dimRange, 1, diagonal_elements, sub_diagonal_elements, b, 1);
   if (info)
     DUNE_THROW(Dune::MathError, "solving system failed");
-
-  //  return inverse_condition;
 }
 
 
