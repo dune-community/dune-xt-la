@@ -91,7 +91,10 @@ public:
   using RealMatrixType = RealMatrixImp;
   using ComplexMatrixType = ComplexMatrixImp;
 
-  EigenSolverBase(const MatrixType& matrix, const std::string& type = "")
+  EigenSolverBase(const MatrixType& matrix,
+                  const std::string& type = "",
+                  bool disable_checks_in_release_builds = false,
+                  double tolerance = 1e-10)
     : matrix_(matrix)
     , options_(EigenSolverOptions<MatrixType>::options(type))
     , computed_(false)
@@ -101,11 +104,19 @@ public:
     , real_eigenvectors_(nullptr)
     , eigenvectors_inverse_(nullptr)
     , real_eigenvectors_inverse_(nullptr)
+    , disable_checks_in_release_builds_(disable_checks_in_release_builds)
+    , tolerance_(tolerance)
   {
-    pre_checks();
+#ifdef NDEBUG
+    if (!disable_checks_in_release_builds)
+#endif
+      pre_checks();
   }
 
-  EigenSolverBase(const MatrixType& matrix, const Common::Configuration opts)
+  EigenSolverBase(const MatrixType& matrix,
+                  Common::Configuration& opts,
+                  bool disable_checks_in_release_builds = false,
+                  double tolerance = 1e-10)
     : matrix_(matrix)
     , options_(opts)
     , computed_(false)
@@ -115,8 +126,13 @@ public:
     , real_eigenvectors_(nullptr)
     , eigenvectors_inverse_(nullptr)
     , real_eigenvectors_inverse_(nullptr)
+    , disable_checks_in_release_builds_(disable_checks_in_release_builds)
+    , tolerance_(tolerance)
   {
-    pre_checks();
+#ifdef NDEBUG
+    if (!disable_checks_in_release_builds)
+#endif
+      pre_checks();
   }
 
   EigenSolverBase(const ThisType& other) = default;
@@ -241,10 +257,17 @@ public:
     }
     invert_eigenvectors();
     assert(eigenvectors_inverse_ && "This must not happen after calling invert_eigenvectors()!");
-    const double check_eigendecomposition = options_.get<double>("assert_eigendecomposition");
-    if (check_eigendecomposition > 0)
-      complex_eigendecomposition_helper<>::check(
-          *this, check_eigendecomposition > 0 ? check_eigendecomposition : options_.get<double>("real_tolerance"));
+
+#ifdef NDEBUG
+    if (!disable_checks_in_release_builds_) {
+#endif
+      const double check_eigendecomposition = options_.get<double>("assert_eigendecomposition");
+      if (check_eigendecomposition > 0)
+        complex_eigendecomposition_helper<>::check(
+            *this, check_eigendecomposition > 0 ? check_eigendecomposition : options_.get<double>("real_tolerance"));
+#ifdef NDEBUG
+    }
+#endif
     return *eigenvectors_inverse_;
   } // ... eigenvectors(...)
 
@@ -280,13 +303,19 @@ public:
     }
     invert_real_eigenvectors();
     assert(real_eigenvectors_inverse_ && "This must not happen after calling invert_real_eigenvectors()!");
-    const double check_eigendecomposition = options_.get<double>("assert_real_eigendecomposition");
-    assert_eigendecomposition(matrix_,
-                              *real_eigenvalues_,
-                              *real_eigenvectors_,
-                              *real_eigenvectors_inverse_,
-                              check_eigendecomposition > 0 ? check_eigendecomposition
-                                                           : options_.get<double>("real_tolerance"));
+#ifdef NDEBUG
+    if (!disable_checks_in_release_builds_) {
+#endif
+      const double check_eigendecomposition = options_.get<double>("assert_real_eigendecomposition");
+      assert_eigendecomposition(matrix_,
+                                *real_eigenvalues_,
+                                *real_eigenvectors_,
+                                *real_eigenvectors_inverse_,
+                                check_eigendecomposition > 0 ? check_eigendecomposition
+                                                             : options_.get<double>("real_tolerance"));
+#ifdef NDEBUG
+    }
+#endif
     return *real_eigenvectors_inverse_;
   } // ... eigenvectors(...)
 
@@ -295,7 +324,10 @@ protected:
   {
     if (!computed_) {
       compute();
-      post_checks();
+#ifdef NDEBUG
+      if (!disable_checks_in_release_builds_)
+#endif
+        post_checks();
     }
     computed_ = true;
   }
@@ -611,10 +643,10 @@ protected:
   {
     assert(eigenvectors_ && "This should not happen!");
     if (!real_eigenvectors_) {
-      const double assert_real_eigenvectors = options_.get<double>("assert_real_eigenvectors");
-      const double tolerance =
-          (assert_real_eigenvectors > 0) ? assert_real_eigenvectors : options_.get<double>("real_tolerance");
-      real_eigenvectors_helper<>::compute(*this, tolerance);
+      //      const double assert_real_eigenvectors = options_.get<double>("assert_real_eigenvectors");
+      //      const double tolerance =
+      //          (assert_real_eigenvectors > 0) ? assert_real_eigenvectors : options_.get<double>("real_tolerance");
+      real_eigenvectors_helper<>::compute(*this, tolerance_);
     }
   }
 
@@ -624,9 +656,9 @@ protected:
     try {
       if (options_.has_sub("matrix-inverter")) {
         eigenvectors_inverse_ =
-            std::make_unique<ComplexMatrixType>(invert_matrix(*eigenvectors_, options_.sub("matrix-inverter")));
+            invert_matrix(*eigenvectors_, options_.sub("matrix-inverter"), disable_checks_in_release_builds_);
       } else
-        eigenvectors_inverse_ = std::make_unique<ComplexMatrixType>(invert_matrix(*eigenvectors_));
+        eigenvectors_inverse_ = invert_matrix(*eigenvectors_, "", disable_checks_in_release_builds_);
     } catch (const Exceptions::matrix_invert_failed& ee) {
       DUNE_THROW(Exceptions::eigen_solver_failed,
                  "The computed matrix of eigenvectors is not invertible!"
@@ -648,10 +680,9 @@ protected:
     assert(real_eigenvectors_ && "This must not happen when you call this function!");
     try {
       if (options_.has_sub("matrix-inverter")) {
-        real_eigenvectors_inverse_ =
-            std::make_unique<MatrixType>(invert_matrix(*real_eigenvectors_, options_.sub("matrix-inverter")));
+        real_eigenvectors_inverse_ = invert_matrix(*real_eigenvectors_, options_.sub("matrix-inverter"));
       } else
-        real_eigenvectors_inverse_ = std::make_unique<MatrixType>(invert_matrix(*real_eigenvectors_));
+        real_eigenvectors_inverse_ = invert_matrix(*real_eigenvectors_, "", disable_checks_in_release_builds_);
     } catch (const Exceptions::matrix_invert_failed& ee) {
       DUNE_THROW(Exceptions::eigen_solver_failed,
                  "The computed matrix of real eigenvectors is not invertible!"
@@ -772,7 +803,7 @@ protected:
   } // ... contains_inf_or_nan(...)
 
   const MatrixType& matrix_;
-  mutable Common::Configuration options_;
+  Common::Configuration& options_;
   mutable bool computed_;
   mutable std::unique_ptr<std::vector<XT::Common::complex_t<RealType>>> eigenvalues_;
   mutable std::unique_ptr<std::vector<RealType>> real_eigenvalues_;
@@ -780,6 +811,8 @@ protected:
   mutable std::unique_ptr<RealMatrixType> real_eigenvectors_;
   mutable std::unique_ptr<ComplexMatrixType> eigenvectors_inverse_;
   mutable std::unique_ptr<RealMatrixType> real_eigenvectors_inverse_;
+  const bool disable_checks_in_release_builds_;
+  double tolerance_;
 }; // class EigenSolverBase
 
 

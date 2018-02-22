@@ -23,6 +23,10 @@ namespace Dune {
 namespace XT {
 namespace LA {
 
+#if HAVE_LAPACKE
+
+
+void qr(double* A, int rows, int cols, int* permutations, double* tau);
 
 // Calculates A = H * A(row_begin:row_end,col_begin:col_end) where H = I-tau*w*w^T and w = v[row_begin:row_end]
 template <class FieldType, int rows, int cols>
@@ -197,6 +201,8 @@ void qr_decomposition(FieldMatrix<FieldType, rows, cols>& A,
 
   } // jj
 } // void qr(...)
+
+#endif // HAVE_LAPACKE
 
 
 } // namespace LA

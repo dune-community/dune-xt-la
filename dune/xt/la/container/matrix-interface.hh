@@ -330,6 +330,15 @@ public:
     return ret;
   }
 
+  template <int ROWS, int COLS>
+  explicit operator std::unique_ptr<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>() const
+  {
+    auto ret = XT::Common::make_unique<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>(ScalarType(0));
+    CHECK_CRTP(this->as_imp().copy_to_densematrix(*ret));
+    this->as_imp().copy_to_densematrix(*ret);
+    return ret;
+  }
+
   explicit operator Dune::DynamicMatrix<ScalarType>() const
   {
     Dune::DynamicMatrix<ScalarType> ret(rows(), cols(), ScalarType(0));
@@ -469,6 +478,16 @@ struct MatrixAbstractionBase
   create(const size_t rows, const size_t cols, const ScalarType& val)
   {
     return MatrixType(rows, cols, val);
+  }
+
+  static inline std::unique_ptr<MatrixType> create_dynamic(const size_t rows, const size_t cols)
+  {
+    return std::make_unique<MatrixType>(rows, cols);
+  }
+
+  static inline std::unique_ptr<MatrixType> create_dynamic(const size_t rows, const size_t cols, const ScalarType& val)
+  {
+    return std::make_unique<MatrixType>(rows, cols, val);
   }
 
   static inline typename std::enable_if<is_matrix, size_t>::type rows(const MatrixType& mat)

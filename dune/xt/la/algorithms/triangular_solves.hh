@@ -16,7 +16,9 @@
 #include <dune/common/fmatrix.hh>
 
 #include <dune/xt/common/float_cmp.hh>
+#include <dune/xt/common/lapacke.hh>
 
+#include <dune/xt/la/algorithms/solve_qr_factorized.hh>
 #include <dune/xt/la/container/common/matrix/sparse.hh>
 #include <dune/xt/la/container/common/vector/sparse.hh>
 
@@ -34,6 +36,10 @@ void solve_lower_triangular(const Dune::DenseMatrix<MatrixImp>& A,
                             Dune::DenseVector<VectorImp>& x,
                             const Dune::DenseVector<VectorImp>& b)
 {
+#if HAVE_LAPACKE
+  std::copy_n(b.begin(), x.size(), x.begin());
+  solve_lower_triangular(&(A[0][0]), &(x[0]), A.rows());
+#else // HAVE_LAPACKE
   const size_t num_rows = A.rows();
   // copy assignment operator does not work correctly for DenseVector,
   // so we need to cast it to the derived type first
@@ -45,6 +51,7 @@ void solve_lower_triangular(const Dune::DenseMatrix<MatrixImp>& A,
       rhs[ii] -= A[ii][jj] * x[jj];
     x[ii] = rhs[ii] / A[ii][ii];
   }
+#endif HAVE_LAPACKE
 } // void solve_lower_triangular(Dune::DenseMatrix, ...)
 
 template <class MatrixImp, class ScalarType>
@@ -313,6 +320,11 @@ void solve_lower_triangular_transposed(const Dune::DenseMatrix<MatrixImp>& A,
                                        Dune::DenseVector<FirstVectorImp>& x,
                                        const Dune::DenseVector<SecondVectorImp>& b)
 {
+#if HAVE_LAPACKE
+  std::copy_n(b.begin(), x.size(), x.begin());
+  solve_lower_triangular_transposed(&(A[0][0]), &(x[0]), A.rows());
+#else HAVE_LAPACKE
+  // solve system
   // copy assignment operator does not work correctly for DenseVector,
   // so we need to cast it to the derived type first
   auto& rhs = static_cast<FirstVectorImp&>(x); // use x to store rhs
@@ -323,6 +335,7 @@ void solve_lower_triangular_transposed(const Dune::DenseMatrix<MatrixImp>& A,
       rhs[ii] -= A[jj][ii] * x[jj];
     x[ii] = rhs[ii] / A[ii][ii];
   }
+#endif HAVE_LAPACKE
 }
 
 template <class MatrixTraits, class FirstVectorImp, class SecondVectorImp>

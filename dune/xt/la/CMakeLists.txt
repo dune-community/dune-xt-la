@@ -12,6 +12,8 @@
 
 set(lib_dune_xt_la_sources
     algorithms/solve_sym_tridiag_posdef.cc
+    algorithms/qr.cc
+    algorithms/solve_qr_factorized.cc
     container/pattern.cc
     eigen-solver/internal/numpy.cc)
 
