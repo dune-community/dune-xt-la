@@ -212,6 +212,18 @@ public:
   using VectorInterfaceType::operator*;
   using BaseType::backend;
 
+  /// \name Required by VectorInterface
+  /// \{
+
+  inline void resize(const size_t new_size)
+  {
+    if (new_size != backend_->size()) {
+      backend_ = std::make_shared<BackendType>(new_size);
+      backend_->setZeros();
+    }
+  }
+
+  /// \}
   /// \name Required by ProvidesDataAccess.
   /// \{
 

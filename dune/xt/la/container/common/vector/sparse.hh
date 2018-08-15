@@ -272,6 +272,15 @@ public:
     return size_;
   }
 
+  inline void resize(const size_t new_size)
+  {
+    if (new_size != size()) {
+      size_ = new_size;
+      entries_ = std::make_unique<EntriesVectorType>();
+      indices_ = std::make_unique<IndicesVectorType>();
+    }
+  }
+
   void add_to_entry(const size_t ii, const ScalarType& value)
   {
     ensure_uniqueness();
