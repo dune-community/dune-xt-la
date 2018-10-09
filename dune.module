@@ -12,6 +12,7 @@
 # ~~~
 
 Module: dune-xt-la
-Version: 2.5.0-dev
+Version: 18.10
 Maintainer: dune-xt-dev@listserv.uni-muenster.de
-Depends: dune-common (>= 2.5) dune-testtools (>= 2.5) dune-xt-common (>=2.5) dune-istl (>= 2.5)
+# dunecontrol only supports the operators "<=", ">=", "=" for version checks, no ranges and no "<", ">", "|", "&", so we duplicate dependencies to get a version range
+Depends: dune-common (>=2.5) dune-testtools (>=2.5) dune-xt-common (>=18.10) dune-xt-common (<=18.10.99) dune-istl (>=2.5)
