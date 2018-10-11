@@ -64,17 +64,14 @@ namespace internal {
  * \brief Traits for EigenRowMajorSparseMatrix.
  */
 template <class ScalarImp = double>
-class EigenRowMajorSparseMatrixTraits
+class EigenRowMajorSparseMatrixTraits : public MatrixTraitsBase<ScalarImp,
+                                                                EigenRowMajorSparseMatrix<ScalarImp>,
+                                                                ::Eigen::SparseMatrix<ScalarImp, ::Eigen::RowMajor>,
+                                                                Backends::eigen_sparse,
+                                                                Backends::eigen_dense,
+                                                                true>
 {
-public:
-  typedef typename Dune::FieldTraits<ScalarImp>::field_type ScalarType;
-  typedef typename Dune::FieldTraits<ScalarImp>::real_type RealType;
-  typedef EigenRowMajorSparseMatrix<ScalarType> derived_type;
-  typedef typename ::Eigen::SparseMatrix<ScalarType, ::Eigen::RowMajor> BackendType;
-  static const constexpr Backends backend_type = Backends::eigen_sparse;
-  static const constexpr Backends vector_type = Backends::eigen_dense;
-  static const constexpr bool sparse = true;
-}; // class RowMajorSparseMatrixTraits
+};
 
 
 } // namespace internal
@@ -88,18 +85,20 @@ class EigenRowMajorSparseMatrix
     : public MatrixInterface<internal::EigenRowMajorSparseMatrixTraits<ScalarImp>, ScalarImp>,
       public ProvidesBackend<internal::EigenRowMajorSparseMatrixTraits<ScalarImp>>
 {
-  typedef EigenRowMajorSparseMatrix<ScalarImp> ThisType;
-  typedef MatrixInterface<internal::EigenRowMajorSparseMatrixTraits<ScalarImp>, ScalarImp> MatrixInterfaceType;
+
+  using ThisType = EigenRowMajorSparseMatrix;
+  using InterfaceType = MatrixInterface<internal::EigenRowMajorSparseMatrixTraits<ScalarImp>, ScalarImp>;
 
 public:
-  using Traits = typename MatrixInterfaceType::Traits;
-  using derived_type = typename MatrixInterfaceType::derived_type;
-  typedef typename Traits::BackendType BackendType;
-  typedef typename Traits::ScalarType ScalarType;
-  typedef typename Traits::RealType RealType;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using Traits = typename InterfaceType::Traits;
+  using typename ProvidesBackend<Traits>::BackendType;
+  using derived_type = typename InterfaceType::derived_type;
 
 private:
-  typedef typename BackendType::Index EIGEN_size_t;
+  using MutexesType = typename Traits::MutexesType;
+  using EIGEN_size_t = typename BackendType::Index;
 
 public:
   /**
@@ -111,7 +110,7 @@ public:
                             const size_t num_mutexes = 1)
     : backend_(
           std::make_shared<BackendType>(Common::numeric_cast<EIGEN_size_t>(rr), Common::numeric_cast<EIGEN_size_t>(cc)))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     if (rr > 0 && cc > 0) {
@@ -145,7 +144,7 @@ public:
 
   explicit EigenRowMajorSparseMatrix(const size_t rr = 0, const size_t cc = 0, const size_t num_mutexes = 1)
     : backend_(std::make_shared<BackendType>(rr, cc))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
@@ -155,7 +154,7 @@ public:
                                      const ScalarType& val,
                                      const size_t num_mutexes = 1)
     : backend_(std::make_shared<BackendType>(rr, cc))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     if (val != 0.) {
@@ -179,7 +178,7 @@ public:
                                      const typename Common::FloatCmp::DefaultEpsilon<ScalarType>::Type eps =
                                          Common::FloatCmp::DefaultEpsilon<ScalarType>::value(),
                                      const size_t num_mutexes = 1)
-    : mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    : mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     if (prune) {
@@ -208,14 +207,14 @@ public:
    */
   explicit EigenRowMajorSparseMatrix(BackendType* backend_ptr, const size_t num_mutexes = 1)
     : backend_(backend_ptr)
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
 
   explicit EigenRowMajorSparseMatrix(std::shared_ptr<BackendType> backend_ptr, const size_t num_mutexes = 1)
     : backend_(backend_ptr)
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
@@ -267,14 +266,14 @@ public:
   void scal(const ScalarType& alpha)
   {
     auto& backend_ref = backend();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
     backend_ref *= alpha;
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
   }
 
   void axpy(const ScalarType& alpha, const ThisType& xx)
   {
     auto& backend_ref = backend();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     if (!has_equal_shape(xx))
       DUNE_THROW(Common::Exceptions::shapes_do_not_match,
                  "The shape of xx (" << xx.rows() << "x" << xx.cols() << ") does not match the shape of this ("
@@ -319,7 +318,7 @@ public:
   void add_to_entry(const size_t ii, const size_t jj, const ScalarType& value)
   {
     auto& backend_ref = backend();
-    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    internal::LockGuard DUNE_UNUSED(lock)(*mutexes_, ii, rows());
     assert(these_are_valid_indices(ii, jj));
     backend_ref.coeffRef(Common::numeric_cast<EIGEN_size_t>(ii), Common::numeric_cast<EIGEN_size_t>(jj)) += value;
   }
@@ -510,10 +509,10 @@ public:
     return backend().innerIndexPtr();
   }
 
-  using MatrixInterfaceType::operator+;
-  using MatrixInterfaceType::operator-;
-  using MatrixInterfaceType::operator+=;
-  using MatrixInterfaceType::operator-=;
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator+=;
+  using InterfaceType::operator-=;
 
 private:
   bool these_are_valid_indices(const size_t ii, const size_t jj) const
@@ -540,7 +539,7 @@ protected:
   {
     if (!backend_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!backend_.unique()) {
         backend_ = std::make_shared<BackendType>(*backend_);
         mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());

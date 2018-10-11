@@ -65,18 +65,14 @@ namespace internal {
  *  \brief Traits for EigenDenseVector.
  */
 template <class ScalarImp = double>
-class EigenDenseVectorTraits
+class EigenDenseVectorTraits : public VectorTraitsBase<ScalarImp,
+                                                       EigenDenseVector<ScalarImp>,
+                                                       ::Eigen::Matrix<ScalarImp, ::Eigen::Dynamic, 1>,
+                                                       Backends::eigen_dense,
+                                                       Backends::eigen_dense,
+                                                       Backends::eigen_sparse>
 {
-public:
-  typedef typename Dune::FieldTraits<ScalarImp>::field_type ScalarType;
-  typedef typename Dune::FieldTraits<ScalarImp>::real_type RealType;
-  typedef ScalarType DataType;
-  typedef EigenDenseVector<ScalarType> derived_type;
-  typedef typename ::Eigen::Matrix<ScalarType, ::Eigen::Dynamic, 1> BackendType;
-  static const constexpr Backends backend_type = Backends::eigen_dense;
-  static const constexpr Backends dense_matrix_type = Backends::eigen_dense;
-  static const constexpr Backends sparse_matrix_type = Backends::eigen_sparse;
-}; // class EigenDenseVectorTraits
+};
 
 
 /**
@@ -84,36 +80,27 @@ public:
  */
 template <class ScalarImp = double>
 class EigenMappedDenseVectorTraits
+    : public VectorTraitsBase<ScalarImp,
+                              EigenMappedDenseVector<ScalarImp>,
+                              Eigen::Map<::Eigen::Matrix<ScalarImp, ::Eigen::Dynamic, 1>>,
+                              Backends::eigen_dense,
+                              Backends::eigen_dense,
+                              Backends::eigen_sparse>
 {
-  typedef typename ::Eigen::Matrix<ScalarImp, ::Eigen::Dynamic, 1> PlainBackendType;
-
-public:
-  typedef typename Dune::FieldTraits<ScalarImp>::field_type ScalarType;
-  typedef typename Dune::FieldTraits<ScalarImp>::real_type RealType;
-  typedef EigenMappedDenseVector<ScalarType> derived_type;
-  typedef Eigen::Map<PlainBackendType> BackendType;
-  static const constexpr Backends backend_type = Backends::eigen_dense;
-  static const constexpr Backends dense_matrix_type = Backends::eigen_dense;
-  static const constexpr Backends sparse_matrix_type = Backends::eigen_sparse;
-}; // class EigenMappedDenseVectorTraits
+};
 
 
 /**
  *  \brief Traits for EigenDenseMatrix.
  */
 template <class ScalarImp = double>
-class EigenDenseMatrixTraits
+class EigenDenseMatrixTraits : public MatrixTraitsBase<ScalarImp,
+                                                       EigenDenseMatrix<ScalarImp>,
+                                                       ::Eigen::Matrix<ScalarImp, ::Eigen::Dynamic, ::Eigen::Dynamic>,
+                                                       Backends::eigen_dense,
+                                                       Backends::eigen_dense>
 {
-public:
-  typedef typename Dune::FieldTraits<ScalarImp>::field_type ScalarType;
-  typedef typename Dune::FieldTraits<ScalarImp>::real_type RealType;
-  typedef ScalarType DataType;
-  typedef EigenDenseMatrix<ScalarType> derived_type;
-  typedef typename ::Eigen::Matrix<ScalarType, ::Eigen::Dynamic, ::Eigen::Dynamic> BackendType;
-  static const constexpr Backends backend_type = Backends::eigen_dense;
-  static const constexpr Backends vector_type = Backends::eigen_dense;
-  static const constexpr bool sparse = false;
-}; // class EigenDenseMatrixTraits
+};
 
 
 } // namespace internal
@@ -126,20 +113,21 @@ template <class ScalarImp = double>
 class EigenDenseVector : public EigenBaseVector<internal::EigenDenseVectorTraits<ScalarImp>, ScalarImp>,
                          public ProvidesDataAccess<internal::EigenDenseVectorTraits<ScalarImp>>
 {
-  typedef EigenDenseVector<ScalarImp> ThisType;
-  typedef VectorInterface<internal::EigenDenseVectorTraits<ScalarImp>, ScalarImp> VectorInterfaceType;
-  typedef EigenBaseVector<internal::EigenDenseVectorTraits<ScalarImp>, ScalarImp> BaseType;
+  using ThisType = EigenDenseVector;
+  using InterfaceType = VectorInterface<internal::EigenDenseVectorTraits<ScalarImp>, ScalarImp>;
+  using BaseType = EigenBaseVector<internal::EigenDenseVectorTraits<ScalarImp>, ScalarImp>;
 
 public:
-  using Traits = typename VectorInterfaceType::Traits;
-  using derived_type = typename VectorInterfaceType::derived_type;
-  typedef typename Traits::ScalarType ScalarType;
-  typedef typename Traits::RealType RealType;
-  typedef typename Traits::DataType DataType;
-  typedef typename Traits::BackendType BackendType;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using Traits = typename InterfaceType::Traits;
+  using typename ProvidesBackend<Traits>::BackendType;
+  using typename ProvidesDataAccess<Traits>::DataType;
+  //! derived_type is ambiguous due to multiple parent classes otherwise
+  using derived_type = typename InterfaceType::derived_type;
 
 private:
-  typedef typename BackendType::Index EIGEN_size_t;
+  using EIGEN_size_t = typename BackendType::Index;
 
 public:
   EigenDenseVector(const ThisType& other) = default;
@@ -205,11 +193,11 @@ public:
     return *this;
   } // ... operator=(...)
 
-  using VectorInterfaceType::add;
-  using VectorInterfaceType::sub;
-  using VectorInterfaceType::operator+;
-  using VectorInterfaceType::operator-;
-  using VectorInterfaceType::operator*;
+  using InterfaceType::add;
+  using InterfaceType::sub;
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator*;
   using BaseType::backend;
 
   /// \name Required by VectorInterface
@@ -250,7 +238,7 @@ protected:
   {
     if (!backend_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!backend_.unique()) {
         backend_ = std::make_shared<BackendType>(*backend_);
         mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
@@ -269,20 +257,20 @@ private:
 template <class ScalarImp = double>
 class EigenMappedDenseVector : public EigenBaseVector<internal::EigenMappedDenseVectorTraits<ScalarImp>, ScalarImp>
 {
-  typedef EigenMappedDenseVector<ScalarImp> ThisType;
-  typedef VectorInterface<internal::EigenMappedDenseVectorTraits<ScalarImp>, ScalarImp> VectorInterfaceType;
-  typedef EigenBaseVector<internal::EigenMappedDenseVectorTraits<ScalarImp>, ScalarImp> BaseType;
+  using ThisType = EigenMappedDenseVector;
+  using InterfaceType = VectorInterface<internal::EigenMappedDenseVectorTraits<ScalarImp>, ScalarImp>;
+  using BaseType = EigenBaseVector<internal::EigenMappedDenseVectorTraits<ScalarImp>, ScalarImp>;
   static_assert(std::is_same<ScalarImp, double>::value, "Undefined behaviour for non-double data!");
 
 public:
-  using Traits = typename VectorInterfaceType::Traits;
-  using derived_type = typename VectorInterfaceType::derived_type;
-  typedef typename Traits::BackendType BackendType;
-  typedef typename Traits::ScalarType ScalarType;
-  typedef typename Traits::RealType RealType;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using Traits = typename InterfaceType::Traits;
+  using BackendType = typename Traits::BackendType;
+  using derived_type = typename InterfaceType::derived_type;
 
 private:
-  typedef typename BackendType::Index EIGEN_size_t;
+  using EIGEN_size_t = typename BackendType::Index;
 
 public:
   /**
@@ -313,7 +301,7 @@ public:
     backend_ =
         std::make_shared<BackendType>(new ScalarType[other.size()], Common::numeric_cast<EIGEN_size_t>(other.size()));
     for (size_t ii = 0; ii < other.size(); ++ii)
-      backend_->operator[](ii) = other[ii];
+      (*backend_)[ii] = other[ii];
   }
 
   explicit EigenMappedDenseVector(const std::initializer_list<ScalarType>& other, const size_t num_mutexes = 1)
@@ -323,7 +311,7 @@ public:
         std::make_shared<BackendType>(new ScalarType[other.size()], Common::numeric_cast<EIGEN_size_t>(other.size()));
     size_t ii = 0;
     for (auto element : other)
-      backend_->operator[](ii++) = element;
+      (*backend_)[ii++] = element;
   }
 
   /**
@@ -392,11 +380,11 @@ public:
     return *this;
   }
 
-  using VectorInterfaceType::add;
-  using VectorInterfaceType::sub;
-  using VectorInterfaceType::operator+;
-  using VectorInterfaceType::operator-;
-  using VectorInterfaceType::operator*;
+  using InterfaceType::add;
+  using InterfaceType::sub;
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator*;
   using BaseType::backend;
 
 private:
@@ -409,7 +397,7 @@ protected:
   {
     if (!backend_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!backend_.unique()) {
         mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
         auto new_backend = std::make_shared<BackendType>(new ScalarType[backend_->size()], backend_->size());
@@ -432,19 +420,22 @@ class EigenDenseMatrix : public MatrixInterface<internal::EigenDenseMatrixTraits
                          public ProvidesBackend<internal::EigenDenseMatrixTraits<ScalarImp>>,
                          public ProvidesDataAccess<internal::EigenDenseMatrixTraits<ScalarImp>>
 {
-  typedef EigenDenseMatrix<ScalarImp> ThisType;
-  typedef MatrixInterface<internal::EigenDenseMatrixTraits<ScalarImp>, ScalarImp> MatrixInterfaceType;
+
+  using ThisType = EigenDenseMatrix;
+  using InterfaceType = MatrixInterface<internal::EigenDenseMatrixTraits<ScalarImp>, ScalarImp>;
 
 public:
-  using Traits = typename MatrixInterfaceType::Traits;
-  using derived_type = typename MatrixInterfaceType::derived_type;
-  typedef typename Traits::BackendType BackendType;
-  typedef typename Traits::ScalarType ScalarType;
-  typedef typename Traits::RealType RealType;
-  typedef typename Traits::DataType DataType;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using Traits = typename InterfaceType::Traits;
+  using typename ProvidesBackend<Traits>::BackendType;
+  using typename ProvidesDataAccess<Traits>::DataType;
+  //! derived_type is ambiguous due to multiple parent classes otherwise
+  using derived_type = typename InterfaceType::derived_type;
 
 private:
-  typedef typename BackendType::Index EIGEN_size_t;
+  using MutexesType = typename Traits::MutexesType;
+  using EIGEN_size_t = typename BackendType::Index;
 
 public:
   explicit EigenDenseMatrix(const size_t rr = 0,
@@ -452,7 +443,7 @@ public:
                             const ScalarType value = ScalarType(0),
                             const size_t num_mutexes = 1)
     : backend_(new BackendType(rr, cc))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     this->backend_->setOnes();
@@ -465,7 +456,7 @@ public:
                    const SparsityPatternDefault& /*pattern*/,
                    const size_t num_mutexes = 1)
     : backend_(new BackendType(Common::numeric_cast<EIGEN_size_t>(rr), Common::numeric_cast<EIGEN_size_t>(cc)))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     backend_->setZero();
@@ -486,7 +477,7 @@ public:
                             const typename Common::FloatCmp::DefaultEpsilon<ScalarType>::Type eps =
                                 Common::FloatCmp::DefaultEpsilon<ScalarType>::value(),
                             const size_t num_mutexes = 1)
-    : mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    : mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     if (prune)
@@ -498,7 +489,7 @@ public:
   template <class M>
   EigenDenseMatrix(const MatrixInterface<M, ScalarType>& other, const size_t num_mutexes = 1)
     : backend_(new BackendType(other.rows(), other.cols()))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     for (size_t ii = 0; ii < other.rows(); ++ii)
@@ -509,7 +500,7 @@ public:
   template <class T>
   EigenDenseMatrix(const DenseMatrix<T>& other, const size_t num_mutexes = 1)
     : backend_(new BackendType(other.rows(), other.cols()))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     for (size_t ii = 0; ii < other.rows(); ++ii)
@@ -522,14 +513,14 @@ public:
    */
   explicit EigenDenseMatrix(BackendType* backend_ptr, const size_t num_mutexes = 1)
     : backend_(backend_ptr)
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
 
   explicit EigenDenseMatrix(std::shared_ptr<BackendType> backend_ptr, const size_t num_mutexes = 1)
     : backend_(backend_ptr)
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
@@ -595,14 +586,14 @@ public:
   void scal(const ScalarType& alpha)
   {
     auto& backend_ref = backend();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
     backend_ref *= alpha;
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
   }
 
   void axpy(const ScalarType& alpha, const ThisType& xx)
   {
     auto& backend_ref = backend();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     if (!has_equal_shape(xx))
       DUNE_THROW(Common::Exceptions::shapes_do_not_match,
                  "The shape of xx (" << xx.rows() << "x" << xx.cols() << ") does not match the shape of this ("
@@ -641,7 +632,7 @@ public:
   void add_to_entry(const size_t ii, const size_t jj, const ScalarType& value)
   {
     auto& backend_ref = backend();
-    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    internal::LockGuard DUNE_UNUSED(lock)(*mutexes_, jj, cols());
     assert(ii < rows());
     assert(jj < cols());
     backend_ref(ii, jj) += value;
@@ -728,21 +719,21 @@ public:
    * \name Provided for improved performance.
    */
 
-  using MatrixInterfaceType::operator-;
+  using InterfaceType::operator-;
 
   ThisType operator-(const ThisType& other) const override final
   {
     return ThisType(this->backend() - other.backend());
   }
 
-  using MatrixInterfaceType::operator+;
+  using InterfaceType::operator+;
 
   ThisType operator+(const ThisType& other) const override final
   {
     return ThisType(this->backend() + other.backend());
   }
 
-  using MatrixInterfaceType::operator*;
+  using InterfaceType::operator*;
 
   ThisType operator*(const ThisType& other) const override final
   {
@@ -758,7 +749,7 @@ protected:
   {
     if (!backend_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!backend_.unique()) {
         backend_ = std::make_shared<BackendType>(*backend_);
         mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
@@ -816,7 +807,7 @@ struct MatrixAbstraction<LA::EigenDenseMatrix<T>> : public LA::internal::MatrixA
 {
   using BaseType = LA::internal::MatrixAbstractionBase<LA::EigenDenseMatrix<T>>;
 
-  static const constexpr XT::Common::StorageLayout storage_layout = XT::Common::StorageLayout::dense_column_major;
+  static constexpr XT::Common::StorageLayout storage_layout = XT::Common::StorageLayout::dense_column_major;
 
   template <size_t rows = BaseType::static_rows, size_t cols = BaseType::static_cols, class FieldType = T>
   using MatrixTypeTemplate = LA::EigenDenseMatrix<FieldType>;

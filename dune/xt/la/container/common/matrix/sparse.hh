@@ -40,33 +40,31 @@ namespace internal {
 
 
 template <class ScalarImp, Common::StorageLayout layout>
-class CommonSparseMatrixTraits
+struct CommonSparseMatrixTraits : public MatrixTraitsBase<ScalarImp,
+                                                          CommonSparseMatrix<ScalarImp, layout>,
+                                                          void,
+                                                          Backends::common_sparse,
+                                                          Backends::common_dense,
+                                                          true>
 {
-public:
-  using ScalarType = typename Dune::FieldTraits<ScalarImp>::field_type;
-  using RealType = typename Dune::FieldTraits<ScalarImp>::real_type;
-  static const Backends backend_type = Backends::common_dense;
-  static const Backends vector_type = Backends::common_dense;
   using EntriesVectorType = std::vector<ScalarImp>;
   using IndexVectorType = std::vector<size_t>;
-  using EpsType = typename Common::FloatCmp::DefaultEpsilon<ScalarType>::Type;
-  using derived_type = CommonSparseMatrix<ScalarImp, layout>;
-  static const constexpr bool sparse = true;
+  using EpsType = typename Common::FloatCmp::DefaultEpsilon<ScalarImp>::Type;
 };
 
+
 template <class DenseMatrixImp, class SparseMatrixImp>
-class CommonSparseOrDenseMatrixTraits
+struct CommonSparseOrDenseMatrixTraits
+    : public MatrixTraitsBase<typename DenseMatrixImp::ScalarType,
+                              CommonSparseOrDenseMatrix<DenseMatrixImp, SparseMatrixImp>,
+                              void,
+                              Backends::common_dense,
+                              Backends::common_dense,
+                              false>
 {
-public:
   using DenseMatrixType = DenseMatrixImp;
   using SparseMatrixType = SparseMatrixImp;
-  using ScalarType = typename DenseMatrixType::ScalarType;
-  using RealType = typename DenseMatrixType::RealType;
-  static const Backends backend_type = Backends::common_dense;
-  static const Backends vector_type = Backends::common_dense;
-  using EpsType = typename Common::FloatCmp::DefaultEpsilon<ScalarType>::Type;
-  using derived_type = CommonSparseOrDenseMatrix<DenseMatrixType, SparseMatrixType>;
-  static const constexpr bool sparse = false;
+  using EpsType = typename Common::FloatCmp::DefaultEpsilon<typename DenseMatrixImp::ScalarType>::Type;
 };
 
 
@@ -79,18 +77,21 @@ public:
 template <class ScalarImp = double, Common::StorageLayout layout = Common::StorageLayout::csr>
 class CommonSparseMatrix : public MatrixInterface<internal::CommonSparseMatrixTraits<ScalarImp, layout>, ScalarImp>
 {
-  using ThisType = CommonSparseMatrix<ScalarImp, layout>;
-  using MatrixInterfaceType = MatrixInterface<internal::CommonSparseMatrixTraits<ScalarImp, layout>, ScalarImp>;
+  using ThisType = CommonSparseMatrix;
+  using InterfaceType = MatrixInterface<internal::CommonSparseMatrixTraits<ScalarImp, layout>, ScalarImp>;
 
 public:
-  using Traits = typename MatrixInterfaceType::Traits;
-  using derived_type = typename MatrixInterfaceType::derived_type;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using typename InterfaceType::Traits;
   using EntriesVectorType = typename Traits::EntriesVectorType;
-  using IndexVectorType = typename Traits::IndexVectorType;
-  using ScalarType = typename Traits::ScalarType;
-  using RealType = typename Traits::RealType;
   using EpsType = typename Traits::EpsType;
+  using IndexVectorType = typename Traits::IndexVectorType;
 
+private:
+  using MutexesType = typename Traits::MutexesType;
+
+public:
   /**
   * \brief This is the constructor of interest which creates a sparse matrix.
   */
@@ -104,7 +105,7 @@ public:
     , entries_(std::make_shared<EntriesVectorType>())
     , row_pointers_(std::make_shared<IndexVectorType>(num_rows_ + 1, 0))
     , column_indices_(std::make_shared<IndexVectorType>())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , eps_(eps)
     , unshareable_(false)
   {
@@ -141,16 +142,14 @@ public:
                      const EpsType eps = Common::FloatCmp::DefaultEpsilon<ScalarType>::value() / 1000.)
     : num_rows_(rr)
     , num_cols_(cc)
-    , entries_(std::make_shared<EntriesVectorType>(
-          XT::Common::FloatCmp::eq(value, ScalarType(0.), 0., eps / ScalarType(num_cols_)) ? 0 : num_rows_ * num_cols_,
-          value))
+    , entries_(std::make_shared<EntriesVectorType>(is_zero(value, eps) ? 0 : num_rows_ * num_cols_, value))
     , row_pointers_(std::make_shared<IndexVectorType>(num_rows_ + 1, 0))
     , column_indices_(std::make_shared<IndexVectorType>())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , eps_(eps)
     , unshareable_(false)
   {
-    if (XT::Common::FloatCmp::ne(value, ScalarType(0), 0., eps / ScalarType(num_cols_))) {
+    if (!is_zero(value, eps)) {
       IndexVectorType row_column_indices(num_cols_);
       for (size_t col = 0; col < num_cols_; ++col)
         row_column_indices[col] = col;
@@ -184,7 +183,7 @@ public:
     , entries_(std::make_shared<EntriesVectorType>())
     , row_pointers_(std::make_shared<IndexVectorType>(num_rows_ + 1))
     , column_indices_(std::make_shared<IndexVectorType>())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , eps_(eps)
     , unshareable_(false)
   {
@@ -233,10 +232,8 @@ public:
       entries_ = other.unshareable_ ? std::make_shared<EntriesVectorType>(*other.entries_) : other.entries_;
       row_pointers_ = other.row_pointers_;
       column_indices_ = other.column_indices_;
-      mutexes_ = other.mutexes_
-                     ? (other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size())
-                                           : other.mutexes_)
-                     : nullptr;
+      mutexes_ =
+          other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size()) : other.mutexes_;
       unshareable_ = false;
     }
     return *this;
@@ -295,14 +292,14 @@ public:
     ret.entries_ = std::make_shared<EntriesVectorType>(*entries_);
     ret.row_pointers_ = std::make_shared<IndexVectorType>(*row_pointers_);
     ret.column_indices_ = std::make_shared<IndexVectorType>(*column_indices_);
-    ret.mutexes_ = mutexes_ ? std::make_shared<std::vector<std::mutex>>(mutexes_->size()) : nullptr;
+    ret.mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
     return ret;
   }
 
   inline void scal(const ScalarType& alpha)
   {
     ensure_uniqueness();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     std::transform(
         entries_->begin(), entries_->end(), entries_->begin(), std::bind1st(std::multiplies<ScalarType>(), alpha));
   }
@@ -310,7 +307,7 @@ public:
   inline void axpy(const ScalarType& alpha, const ThisType& xx)
   {
     ensure_uniqueness();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     assert(has_equal_shape(xx));
     const auto& xx_entries = *xx.entries_;
     for (size_t ii = 0; ii < entries_->size(); ++ii)
@@ -374,7 +371,7 @@ public:
   inline void add_to_entry(const size_t rr, const size_t cc, const ScalarType& value)
   {
     ensure_uniqueness();
-    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, rr);
+    internal::LockGuard DUNE_UNUSED(lock)(*mutexes_, rr, rows());
     entries_->operator[](get_entry_index(rr, cc)) += value;
   }
 
@@ -459,7 +456,7 @@ public:
     SparsityPatternDefault ret(num_rows_);
     for (size_t rr = 0; rr < num_rows_; ++rr) {
       for (size_t kk = row_pointers_->operator[](rr); kk < row_pointers_->operator[](rr + 1); ++kk) {
-        if (!prune || Common::FloatCmp::ne(entries_->operator[](kk), ScalarType(0), 0., eps / ScalarType(num_cols_)))
+        if (!prune || !is_zero(entries_->operator[](kk), eps))
           ret.insert(rr, column_indices_->operator[](kk));
       }
     }
@@ -498,10 +495,10 @@ public:
     column_indices_ = new_column_indices;
   } // void rightmultiply(...)
 
-  using MatrixInterfaceType::operator+;
-  using MatrixInterfaceType::operator-;
-  using MatrixInterfaceType::operator+=;
-  using MatrixInterfaceType::operator-=;
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator+=;
+  using InterfaceType::operator-=;
 
   ScalarType* entries()
   {
@@ -550,17 +547,16 @@ public:
     return eps_;
   }
 
-protected:
   inline void ensure_uniqueness() const
   {
     if (!entries_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!entries_.unique()) {
         entries_ = std::make_shared<EntriesVectorType>(*entries_);
         row_pointers_ = std::make_shared<IndexVectorType>(*row_pointers_);
         column_indices_ = std::make_shared<IndexVectorType>(*column_indices_);
-        mutexes_ = mutexes_ ? std::make_shared<std::vector<std::mutex>>(mutexes_->size()) : nullptr;
+        mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
       }
     }
   } // ... ensure_uniqueness(...)
@@ -580,6 +576,13 @@ private:
     return size_t(-1);
   }
 
+  bool is_zero(const ScalarType val, const ScalarType eps) const
+  {
+    const auto factor = (num_cols_ == 0 ? 1. : ScalarType(num_cols_));
+    const ScalarType tol = eps / factor;
+    return XT::Common::FloatCmp::eq(val, ScalarType(0.), 0., tol);
+  }
+
   size_t num_rows_, num_cols_;
   mutable std::shared_ptr<EntriesVectorType> entries_;
   mutable std::shared_ptr<IndexVectorType> row_pointers_;
@@ -596,19 +599,22 @@ template <class ScalarImp>
 class CommonSparseMatrix<ScalarImp, Common::StorageLayout::csc>
     : public MatrixInterface<internal::CommonSparseMatrixTraits<ScalarImp, Common::StorageLayout::csc>, ScalarImp>
 {
-  using ThisType = CommonSparseMatrix<ScalarImp, Common::StorageLayout::csc>;
-  using MatrixInterfaceType =
+  using ThisType = CommonSparseMatrix;
+  using InterfaceType =
       MatrixInterface<internal::CommonSparseMatrixTraits<ScalarImp, Common::StorageLayout::csc>, ScalarImp>;
 
 public:
-  using Traits = typename MatrixInterfaceType::Traits;
-  using derived_type = typename MatrixInterfaceType::derived_type;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using typename InterfaceType::Traits;
   using EntriesVectorType = typename Traits::EntriesVectorType;
-  using ScalarType = typename Traits::ScalarType;
-  using RealType = typename Traits::RealType;
   using EpsType = typename Traits::EpsType;
-  using IndexVectorType = std::vector<size_t>;
+  using IndexVectorType = typename Traits::IndexVectorType;
 
+private:
+  using MutexesType = typename Traits::MutexesType;
+
+public:
   /**
   * \brief This is the constructor of interest which creates a sparse matrix.
   */
@@ -622,7 +628,7 @@ public:
     , entries_(std::make_shared<EntriesVectorType>())
     , column_pointers_(std::make_shared<IndexVectorType>(num_cols_ + 1, 0))
     , row_indices_(std::make_shared<IndexVectorType>())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , eps_(eps)
     , unshareable_(false)
   {
@@ -651,16 +657,14 @@ public:
                      const EpsType eps = Common::FloatCmp::DefaultEpsilon<ScalarType>::value() / 1000.)
     : num_rows_(rr)
     , num_cols_(cc)
-    , entries_(std::make_shared<EntriesVectorType>(
-          XT::Common::FloatCmp::eq(value, ScalarType(0.), 0., eps / ScalarType(num_cols_)) ? 0 : num_rows_ * num_cols_,
-          value))
+    , entries_(std::make_shared<EntriesVectorType>(is_zero(value, eps) ? 0 : num_rows_ * num_cols_, value))
     , column_pointers_(std::make_shared<IndexVectorType>(num_cols_ + 1, 0))
     , row_indices_(std::make_shared<IndexVectorType>())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , eps_(eps)
     , unshareable_(false)
   {
-    if (XT::Common::FloatCmp::ne(value, ScalarType(0.), 0., eps / ScalarType(num_cols_))) {
+    if (!is_zero(value, eps)) {
       IndexVectorType column_row_indices(num_rows_);
       for (size_t row = 0; row < num_rows_; ++row)
         column_row_indices[row] = row;
@@ -677,7 +681,7 @@ public:
     , entries_(std::make_shared<EntriesVectorType>())
     , column_pointers_(std::make_shared<IndexVectorType>(num_cols_ + 1))
     , row_indices_(std::make_shared<IndexVectorType>())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
@@ -705,7 +709,7 @@ public:
     , entries_(std::make_shared<EntriesVectorType>())
     , column_pointers_(std::make_shared<IndexVectorType>(num_cols_ + 1, 0))
     , row_indices_(std::make_shared<IndexVectorType>())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , eps_(eps)
     , unshareable_(false)
   {
@@ -747,10 +751,8 @@ public:
       entries_ = other.unshareable_ ? std::make_shared<EntriesVectorType>(*other.entries_) : other.entries_;
       column_pointers_ = other.column_pointers_;
       row_indices_ = other.row_indices_;
-      mutexes_ = other.mutexes_
-                     ? (other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size())
-                                           : other.mutexes_)
-                     : nullptr;
+      mutexes_ =
+          other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size()) : other.mutexes_;
       eps_ = other.eps_;
       unshareable_ = false;
     }
@@ -813,14 +815,14 @@ public:
     ret.entries_ = std::make_shared<EntriesVectorType>(*entries_);
     ret.column_pointers_ = std::make_shared<IndexVectorType>(*column_pointers_);
     ret.row_indices_ = std::make_shared<IndexVectorType>(*row_indices_);
-    ret.mutexes_ = mutexes_ ? std::make_shared<std::vector<std::mutex>>(mutexes_->size()) : nullptr;
+    ret.mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
     return ret;
   }
 
   inline void scal(const ScalarType& alpha)
   {
     ensure_uniqueness();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     std::transform(
         entries_->begin(), entries_->end(), entries_->begin(), std::bind1st(std::multiplies<ScalarType>(), alpha));
   }
@@ -828,7 +830,7 @@ public:
   inline void axpy(const ScalarType& alpha, const ThisType& xx)
   {
     ensure_uniqueness();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     assert(has_equal_shape(xx));
     const auto& xx_entries = *xx.entries_;
     for (size_t ii = 0; ii < entries_->size(); ++ii)
@@ -935,7 +937,7 @@ public:
   inline void add_to_entry(const size_t rr, const size_t cc, const ScalarType& value)
   {
     ensure_uniqueness();
-    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, rr);
+    internal::LockGuard DUNE_UNUSED(lock)(*mutexes_, rr, rows());
     entries_->operator[](get_entry_index(rr, cc)) += value;
   }
 
@@ -1021,7 +1023,7 @@ public:
     SparsityPatternDefault ret(num_rows_);
     for (size_t cc = 0; cc < num_cols_; ++cc) {
       for (size_t kk = (*column_pointers_)[cc]; kk < (*column_pointers_)[cc + 1]; ++kk) {
-        if (!prune || Common::FloatCmp::ne((*entries_)[kk], ScalarType(0), 0., eps / ScalarType(num_cols_)))
+        if (!prune || !is_zero((*entries_)[kk], eps))
           ret.insert((*row_indices_)[kk], cc);
       }
     } // cc
@@ -1100,10 +1102,10 @@ public:
     *row_indices_ = new_row_indices;
   } // void rightmultiply(...)
 
-  using MatrixInterfaceType::operator+;
-  using MatrixInterfaceType::operator-;
-  using MatrixInterfaceType::operator+=;
-  using MatrixInterfaceType::operator-=;
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator+=;
+  using InterfaceType::operator-=;
 
   ScalarType* entries()
   {
@@ -1152,17 +1154,16 @@ public:
     return eps_;
   }
 
-protected:
   inline void ensure_uniqueness() const
   {
     if (!entries_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!entries_.unique()) {
         entries_ = std::make_shared<EntriesVectorType>(*entries_);
         column_pointers_ = std::make_shared<IndexVectorType>(*column_pointers_);
         row_indices_ = std::make_shared<IndexVectorType>(*row_indices_);
-        mutexes_ = mutexes_ ? std::make_shared<std::vector<std::mutex>>(mutexes_->size()) : nullptr;
+        mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
       }
     }
   } // ... ensure_uniqueness(...)
@@ -1182,6 +1183,13 @@ private:
     return size_t(-1);
   }
 
+  bool is_zero(const ScalarType val, const ScalarType eps) const
+  {
+    const auto factor = (num_cols_ == 0 ? 1. : ScalarType(num_cols_));
+    const ScalarType tol = eps / factor;
+    return XT::Common::FloatCmp::eq(val, ScalarType(0.), 0., tol);
+  }
+
   size_t num_rows_, num_cols_;
   mutable std::shared_ptr<EntriesVectorType> entries_;
   mutable std::shared_ptr<IndexVectorType> column_pointers_;
@@ -1199,19 +1207,17 @@ class CommonSparseOrDenseMatrix
     : public MatrixInterface<internal::CommonSparseOrDenseMatrixTraits<DenseMatrixImp, SparseMatrixImp>,
                              typename SparseMatrixImp::ScalarType>
 {
-  using ThisType = CommonSparseOrDenseMatrix<DenseMatrixImp, SparseMatrixImp>;
-  using MatrixInterfaceType =
-      MatrixInterface<internal::CommonSparseOrDenseMatrixTraits<DenseMatrixImp, SparseMatrixImp>,
-                      typename SparseMatrixImp::ScalarType>;
+  using ThisType = CommonSparseOrDenseMatrix;
+  using InterfaceType = MatrixInterface<internal::CommonSparseOrDenseMatrixTraits<DenseMatrixImp, SparseMatrixImp>,
+                                        typename SparseMatrixImp::ScalarType>;
 
 public:
-  using Traits = typename MatrixInterfaceType::Traits;
-  using derived_type = typename MatrixInterfaceType::derived_type;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using typename InterfaceType::Traits;
+  using EpsType = typename Traits::EpsType;
   using DenseMatrixType = typename Traits::DenseMatrixType;
   using SparseMatrixType = typename Traits::SparseMatrixType;
-  using ScalarType = typename Traits::ScalarType;
-  using RealType = typename Traits::RealType;
-  using EpsType = typename Traits::EpsType;
   static constexpr double sparse_limit = 0.1;
 
   /**
@@ -1249,7 +1255,7 @@ public:
     : num_rows_(rr)
     , num_cols_(cc)
   {
-    if (XT::Common::FloatCmp::ne(value, ScalarType(0.), 0., eps / ScalarType(num_cols_)) || !use_sparse_if_zero) {
+    if (!is_zero(value, eps) || !use_sparse_if_zero) {
       sparse_matrix_ = SparseMatrixType(0, 0, value, num_mutexes, eps);
       dense_matrix_ = DenseMatrixType(rr, cc, value, num_mutexes);
     } else {
@@ -1276,7 +1282,7 @@ public:
   template <class OtherMatrixType>
   explicit CommonSparseOrDenseMatrix(
       const OtherMatrixType& mat,
-      const typename std::enable_if<Common::MatrixAbstraction<OtherMatrixType>::is_matrix, bool>::type prune = false,
+      const typename std::enable_if<Common::MatrixAbstraction<OtherMatrixType>::is_matrix, bool>::type prune = true,
       const EpsType eps_in = Common::FloatCmp::DefaultEpsilon<ScalarType>::value() / 1000.,
       const size_t num_mutexes = 1)
     : num_rows_(Common::MatrixAbstraction<OtherMatrixType>::rows(mat))
@@ -1514,36 +1520,43 @@ public:
       sparse_ ? sparse_matrix_.rightmultiply(other.dense_matrix()) : dense_matrix_.rightmultiply(other.dense_matrix());
   } // void rightmultiply(...)
 
-  using MatrixInterfaceType::operator+;
-  using MatrixInterfaceType::operator-;
-  using MatrixInterfaceType::operator+=;
-  using MatrixInterfaceType::operator-=;
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator+=;
+  using InterfaceType::operator-=;
 
   // clang does not find the conversion operators from the interface if they are not redefined here
   template <int ROWS, int COLS>
   explicit operator Dune::FieldMatrix<ScalarType, ROWS, COLS>() const
   {
-    return MatrixInterfaceType::operator Dune::FieldMatrix<ScalarType, ROWS, COLS>();
+    return InterfaceType::operator Dune::FieldMatrix<ScalarType, ROWS, COLS>();
   }
 
   template <int ROWS, int COLS>
   explicit operator std::unique_ptr<Dune::FieldMatrix<ScalarType, ROWS, COLS>>() const
   {
-    return MatrixInterfaceType::operator std::unique_ptr<Dune::FieldMatrix<ScalarType, ROWS, COLS>>();
+    return InterfaceType::operator std::unique_ptr<Dune::FieldMatrix<ScalarType, ROWS, COLS>>();
   }
 
   template <int ROWS, int COLS>
   explicit operator std::unique_ptr<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>() const
   {
-    return MatrixInterfaceType::operator std::unique_ptr<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>();
+    return InterfaceType::operator std::unique_ptr<XT::Common::FieldMatrix<ScalarType, ROWS, COLS>>();
   }
 
   explicit operator Dune::DynamicMatrix<ScalarType>() const
   {
-    return MatrixInterfaceType::operator Dune::DynamicMatrix<ScalarType>();
+    return InterfaceType::operator Dune::DynamicMatrix<ScalarType>();
   }
 
 private:
+  bool is_zero(const ScalarType val, const ScalarType eps) const
+  {
+    const auto factor = (num_cols_ == 0 ? 1. : ScalarType(num_cols_));
+    const ScalarType tol = eps / factor;
+    return XT::Common::FloatCmp::eq(val, ScalarType(0.), 0., tol);
+  }
+
   size_t num_rows_, num_cols_;
   bool sparse_;
   mutable SparseMatrixType sparse_matrix_;

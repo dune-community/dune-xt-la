@@ -47,14 +47,14 @@ namespace internal {
 template <class ScalarType>
 struct MatrixBackendBase
 {
-  MatrixBackendBase(size_t num_rows, size_t num_cols, const ScalarType value)
+  MatrixBackendBase(const size_t num_rows, const size_t num_cols, const ScalarType value)
     : num_rows_(num_rows)
     , num_cols_(num_cols)
     , entries_(num_rows_ * num_cols_, value)
   {
   }
 
-  void resize(size_t num_rows, size_t num_cols)
+  void resize(const size_t num_rows, const size_t num_cols)
   {
     num_rows_ = num_rows;
     num_cols_ = num_cols;
@@ -75,17 +75,17 @@ struct CommonDenseMatrixBackend<ScalarType, Common::StorageLayout::dense_row_maj
 {
   using BaseType = MatrixBackendBase<ScalarType>;
 
-  CommonDenseMatrixBackend(size_t num_rows, size_t num_cols, const ScalarType value = ScalarType(0))
+  CommonDenseMatrixBackend(const size_t num_rows, const size_t num_cols, const ScalarType value = ScalarType(0))
     : BaseType(num_rows, num_cols, value)
   {
   }
 
-  ScalarType& get_entry_ref(size_t rr, size_t cc)
+  ScalarType& get_entry_ref(const size_t rr, const size_t cc)
   {
     return entries_[rr * num_cols_ + cc];
   }
 
-  const ScalarType& get_entry_ref(size_t rr, size_t cc) const
+  const ScalarType& get_entry_ref(const size_t rr, const size_t cc) const
   {
     return entries_[rr * num_cols_ + cc];
   }
@@ -101,17 +101,17 @@ struct CommonDenseMatrixBackend<ScalarType, Common::StorageLayout::dense_column_
 {
   using BaseType = MatrixBackendBase<ScalarType>;
 
-  CommonDenseMatrixBackend(size_t num_rows, size_t num_cols, const ScalarType value = ScalarType(0))
+  CommonDenseMatrixBackend(const size_t num_rows, const size_t num_cols, const ScalarType value = ScalarType(0))
     : BaseType(num_rows, num_cols, value)
   {
   }
 
-  ScalarType& get_entry_ref(size_t rr, size_t cc)
+  ScalarType& get_entry_ref(const size_t rr, const size_t cc)
   {
     return entries_[cc * num_rows_ + rr];
   }
 
-  const ScalarType& get_entry_ref(size_t rr, size_t cc) const
+  const ScalarType& get_entry_ref(const size_t rr, const size_t cc) const
   {
     return entries_[cc * num_rows_ + rr];
   }
@@ -122,16 +122,12 @@ struct CommonDenseMatrixBackend<ScalarType, Common::StorageLayout::dense_column_
 
 
 template <class ScalarImp, Common::StorageLayout storage_layout>
-class CommonDenseMatrixTraits
+class CommonDenseMatrixTraits : public MatrixTraitsBase<ScalarImp,
+                                                        CommonDenseMatrix<ScalarImp, storage_layout>,
+                                                        CommonDenseMatrixBackend<ScalarImp, storage_layout>,
+                                                        Backends::common_dense,
+                                                        Backends::common_dense>
 {
-public:
-  using ScalarType = typename Dune::FieldTraits<ScalarImp>::field_type;
-  using RealType = typename Dune::FieldTraits<ScalarImp>::real_type;
-  using BackendType = CommonDenseMatrixBackend<ScalarType, storage_layout>;
-  using derived_type = CommonDenseMatrix<ScalarType, storage_layout>;
-  static const Backends backend_type = Backends::common_dense;
-  static const Backends vector_type = Backends::common_dense;
-  static const constexpr bool sparse = false;
 };
 
 
@@ -147,21 +143,24 @@ class CommonDenseMatrix
       public ProvidesBackend<internal::CommonDenseMatrixTraits<ScalarImp, storage_layout>>
 {
   using ThisType = CommonDenseMatrix;
-  using MatrixInterfaceType = MatrixInterface<internal::CommonDenseMatrixTraits<ScalarImp, storage_layout>, ScalarImp>;
+  using InterfaceType = MatrixInterface<internal::CommonDenseMatrixTraits<ScalarImp, storage_layout>, ScalarImp>;
 
 public:
-  using Traits = typename internal::CommonDenseMatrixTraits<ScalarImp, storage_layout>;
-  using derived_type = typename MatrixInterfaceType::derived_type;
-  using BackendType = typename Traits::BackendType;
-  using ScalarType = typename Traits::ScalarType;
-  using RealType = typename Traits::RealType;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using Traits = typename InterfaceType::Traits;
+  using typename ProvidesBackend<Traits>::BackendType;
 
+private:
+  using MutexesType = typename Traits::MutexesType;
+
+public:
   explicit CommonDenseMatrix(const size_t rr = 0,
                              const size_t cc = 0,
                              const ScalarType value = ScalarType(0),
                              const size_t num_mutexes = 1)
     : backend_(std::make_shared<BackendType>(rr, cc, value))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
@@ -172,16 +171,14 @@ public:
                     const SparsityPatternDefault& /*pattern*/,
                     const size_t num_mutexes = 1)
     : backend_(std::make_shared<BackendType>(rr, cc, ScalarType(0)))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
 
   CommonDenseMatrix(const ThisType& other)
     : backend_(other.unshareable_ ? std::make_shared<BackendType>(*other.backend_) : other.backend_)
-    , mutexes_(other.unshareable_
-                   ? (other.mutexes_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size()) : nullptr)
-                   : other.mutexes_)
+    , mutexes_(other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size()) : other.mutexes_)
     , unshareable_(false)
   {
   }
@@ -194,7 +191,7 @@ public:
                              const typename Common::FloatCmp::DefaultEpsilon<ScalarType>::Type eps =
                                  Common::FloatCmp::DefaultEpsilon<ScalarType>::value(),
                              const size_t num_mutexes = 1)
-    : mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    : mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     if (prune)
@@ -206,7 +203,7 @@ public:
   template <class T>
   CommonDenseMatrix(const DenseMatrix<T>& other, const size_t num_mutexes = 1)
     : backend_(std::make_shared<BackendType>(other.rows(), other.cols()))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     for (size_t ii = 0; ii < other.rows(); ++ii)
@@ -219,14 +216,14 @@ public:
    */
   explicit CommonDenseMatrix(BackendType* backend_ptr, const size_t num_mutexes = 1)
     : backend_(backend_ptr)
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
 
   explicit CommonDenseMatrix(std::shared_ptr<BackendType> backend_ptr, const size_t num_mutexes = 1)
     : backend_(backend_ptr)
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
@@ -235,10 +232,8 @@ public:
   {
     if (this != &other) {
       backend_ = other.unshareable_ ? std::make_shared<BackendType>(*other.backend_) : other.backend_;
-      mutexes_ = other.mutexes_
-                     ? (other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size())
-                                           : other.mutexes_)
-                     : nullptr;
+      mutexes_ =
+          other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size()) : other.mutexes_;
       unshareable_ = false;
     }
     return *this;
@@ -304,7 +299,7 @@ public:
   void scal(const ScalarType& alpha)
   {
     ensure_uniqueness();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     for (auto& entry : backend_->entries_)
       entry *= alpha;
   }
@@ -314,7 +309,7 @@ public:
                                                                          const OtherMatrixType& xx)
   {
     ensure_uniqueness();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     if (!has_equal_shape(xx))
       DUNE_THROW(Common::Exceptions::shapes_do_not_match,
                  "The shape of xx (" << xx.rows() << "x" << xx.cols() << ") does not match the shape of this ("
@@ -412,7 +407,7 @@ public:
   void add_to_entry(const size_t ii, const size_t jj, const ScalarType& value)
   {
     ensure_uniqueness();
-    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    internal::LockGuard DUNE_UNUSED(lock)(*mutexes_, ii, rows());
     assert(ii < rows());
     assert(jj < cols());
     backend_->get_entry_ref(ii, jj) += value;
@@ -488,10 +483,10 @@ public:
 
   /// \}
 
-  using MatrixInterfaceType::operator+;
-  using MatrixInterfaceType::operator-;
-  using MatrixInterfaceType::operator+=;
-  using MatrixInterfaceType::operator-=;
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator+=;
+  using InterfaceType::operator-=;
 
   void deep_copy(const ThisType& other)
   {
@@ -526,7 +521,6 @@ public:
     return ret;
   } // ... pruned(...)
 
-protected:
   /**
    * \see ContainerInterface
    */
@@ -534,13 +528,34 @@ protected:
   {
     if (!backend_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!backend_.unique()) {
         backend_ = std::make_shared<BackendType>(*backend_);
-        mutexes_ = mutexes_ ? std::make_shared<std::vector<std::mutex>>(mutexes_->size()) : nullptr;
+        mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
       }
     }
   } // ... ensure_uniqueness(...)
+
+  ScalarType& get_entry_ref(const size_t rr, const size_t cc)
+  {
+    return backend_.get_entry_ref(rr, cc);
+  }
+
+  const ScalarType& get_entry_ref(const size_t rr, const size_t cc) const
+  {
+    return backend_.get_entry_ref(rr, cc);
+  }
+
+  // get pointer to begin of row (row major backend) or column (column major backend)
+  ScalarType* get_ptr(const size_t row_or_col)
+  {
+    return &(backend_->get_entry_ref(row_or_col, 0));
+  }
+
+  const ScalarType* get_ptr(const size_t row_or_col) const
+  {
+    return &(backend_->get_entry_ref(row_or_col, 0));
+  }
 
 private:
   mutable std::shared_ptr<BackendType> backend_;

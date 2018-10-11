@@ -28,20 +28,12 @@ namespace XT {
 namespace LA {
 namespace internal {
 
-
-// avoid Wfloat-equal warning
-template <class FieldType>
-inline bool is_zero(const FieldType& val)
-{
-  return std::equal_to<FieldType>()(val, FieldType(0));
-}
-
 // computes the LDL^T factorization of a tridiagonal matrix
 template <class FirstVectorType, class SecondVectorType>
 void tridiagonal_ldlt(FirstVectorType& diag, SecondVectorType& subdiag)
 {
-  typedef Common::VectorAbstraction<FirstVectorType> V1;
-  typedef Common::VectorAbstraction<SecondVectorType> V2;
+  using V1 = Common::VectorAbstraction<FirstVectorType>;
+  using V2 = Common::VectorAbstraction<SecondVectorType>;
   V1::set_entry(diag, 0, V1::get_entry(diag, 0));
   for (size_t ii = 0; ii < diag.size() - 1; ++ii) {
     if (!(V1::get_entry(diag, ii) > 0)) // use !(.. > 0) instead of (.. <= 0) to also throw on NaNs
@@ -56,10 +48,10 @@ template <class FirstVectorType, class SecondVectorType, class VectorType>
 std::enable_if_t<Common::is_vector<VectorType>::value, void>
 solve_tridiag_ldlt(const FirstVectorType& diag, const SecondVectorType& subdiag, VectorType& vec)
 {
-  typedef Common::VectorAbstraction<FirstVectorType> V1;
-  typedef Common::VectorAbstraction<SecondVectorType> V2;
-  typedef Common::VectorAbstraction<VectorType> V;
-  typedef typename V::ScalarType ScalarType;
+  using V1 = Common::VectorAbstraction<FirstVectorType>;
+  using V2 = Common::VectorAbstraction<SecondVectorType>;
+  using V = Common::VectorAbstraction<VectorType>;
+  using ScalarType = typename V::ScalarType;
   size_t size = vec.size();
   thread_local auto L =
       eye_matrix<CommonSparseMatrix<ScalarType>>(size, diagonal_pattern(size, size) + diagonal_pattern(size, size, -1));
@@ -80,8 +72,8 @@ template <class FirstVectorType, class SecondVectorType, class MatrixType>
 std::enable_if_t<Common::is_matrix<MatrixType>::value, void>
 solve_tridiag_ldlt(const FirstVectorType& diag, const SecondVectorType& subdiag, MatrixType& mat)
 {
-  typedef Common::VectorAbstraction<FirstVectorType> V1;
-  typedef Common::MatrixAbstraction<MatrixType> M;
+  using V1 = Common::VectorAbstraction<FirstVectorType>;
+  using M = Common::MatrixAbstraction<MatrixType>;
   auto rhs_jj = diag;
   for (size_t jj = 0; jj < M::cols(mat); ++jj) {
     for (size_t ii = 0; ii < M::rows(mat); ++ii)
@@ -105,7 +97,7 @@ void cholesky_rowwise(MatrixType& A)
       for (size_t kk = 0; kk < jj; ++kk)
         L_ij -= M::get_entry(L, ii, kk) * M::get_entry(L, jj, kk);
       L_ij /= M::get_entry(L, jj, jj);
-      if (!only_set_nonzero || !is_zero(L_ij))
+      if (!only_set_nonzero || !XT::Common::is_zero(L_ij))
         M::set_entry(L, ii, jj, L_ij);
     } // jj
     auto L_ii = M::get_entry(A, ii, ii);
@@ -137,7 +129,7 @@ void cholesky_colwise(MatrixType& A)
       for (size_t kk = 0; kk < jj; ++kk)
         L_ij -= M::get_entry(L, ii, kk) * M::get_entry(L, jj, kk);
       L_ij *= L_jj_inv;
-      if (!only_set_nonzero || !is_zero(L_ij))
+      if (!only_set_nonzero || !XT::Common::is_zero(L_ij))
         M::set_entry(L, ii, jj, L_ij);
     } // ii
   } // jj
@@ -167,7 +159,7 @@ cholesky_csr(MatrixType& A)
           L_ij -= entries[ll++] * entries[kk++];
       }
       L_ij /= M::get_entry(L, jj, jj);
-      if (!is_zero(L_ij))
+      if (!XT::Common::is_zero(L_ij))
         M::set_entry(L, ii, jj, L_ij);
     } // jj
     auto L_ii = M::get_entry(A, ii, ii);
@@ -205,8 +197,8 @@ template <class MatrixType,
           Common::StorageLayout storage_layout = Common::MatrixAbstraction<MatrixType>::storage_layout>
 struct CholeskySolver
 {
-  typedef Common::MatrixAbstraction<MatrixType> M;
-  typedef typename M::ScalarType ScalarType;
+  using M = Common::MatrixAbstraction<MatrixType>;
+  using ScalarType = typename M::ScalarType;
   static constexpr bool only_set_nonzero = storage_layout == Common::StorageLayout::csr
                                            || storage_layout == Common::StorageLayout::csc
                                            || std::is_base_of<IstlRowMajorSparseMatrix<ScalarType>, MatrixType>::value;
@@ -218,8 +210,9 @@ struct CholeskySolver
       DUNE_THROW(Dune::InvalidStateException, "Matrix has to be square!");
     if (false) {
 #if HAVE_MKL || HAVE_LAPACKE
-    } else if (storage_layout == Common::StorageLayout::dense_row_major
-               || storage_layout == Common::StorageLayout::dense_column_major) {
+    } else if ((storage_layout == Common::StorageLayout::dense_row_major
+                || storage_layout == Common::StorageLayout::dense_column_major)
+               && size > 10) {
       const int lapacke_storage_layout = (storage_layout == Common::StorageLayout::dense_row_major)
                                              ? Common::Lapacke::row_major()
                                              : Common::Lapacke::col_major();
@@ -243,15 +236,15 @@ struct CholeskySolver
 template <class FirstVectorType, class SecondVectorType, class RhsType>
 struct LDLTSolver
 {
-  typedef Common::MatrixAbstraction<RhsType> M;
-  typedef Common::VectorAbstraction<RhsType> V;
-  typedef Common::VectorAbstraction<FirstVectorType> V1;
-  typedef Common::VectorAbstraction<SecondVectorType> V2;
+  using M = Common::MatrixAbstraction<RhsType>;
+  using V = Common::VectorAbstraction<RhsType>;
+  using V1 = Common::VectorAbstraction<FirstVectorType>;
+  using V2 = Common::VectorAbstraction<SecondVectorType>;
+  using ScalarType = typename std::conditional<M::is_matrix, typename M::ScalarType, typename V::ScalarType>::type;
   static constexpr bool is_row_major = M::is_matrix && M::storage_layout == Common::StorageLayout::dense_row_major;
   static constexpr bool is_col_major = (M::is_matrix && M::storage_layout == Common::StorageLayout::dense_column_major)
                                        || (V::is_vector && V::is_contiguous);
   static constexpr bool is_contiguous = is_row_major || is_col_major;
-  typedef typename std::conditional<M::is_matrix, typename M::ScalarType, typename V::ScalarType>::type ScalarType;
   static constexpr bool only_set_nonzero =
       M::is_matrix
       && (M::storage_layout == Common::StorageLayout::csr || M::storage_layout == Common::StorageLayout::csc
@@ -310,13 +303,21 @@ typename std::enable_if_t<Common::is_matrix<MatrixType>::value, void> cholesky(M
   internal::CholeskySolver<MatrixType>::cholesky(A);
 } // void solve_lower_triangular(...)
 
+template <class MatrixType, class VectorType>
+typename std::enable_if_t<Common::is_matrix<MatrixType>::value && Common::is_vector<VectorType>::value, void>
+solve_cholesky_factorized(const MatrixType& L, VectorType& rhs)
+{
+  auto x = rhs;
+  solve_lower_triangular(L, x, rhs);
+  solve_lower_triangular_transposed(L, rhs, x);
+} // void solve_lower_triangular(...)
+
 
 template <class FirstVectorType, class SecondVectorType>
 typename std::enable_if_t<Common::is_vector<FirstVectorType>::value && Common::is_vector<SecondVectorType>::value, void>
 tridiagonal_ldlt(FirstVectorType& diag, SecondVectorType& subdiag)
 {
   internal::LDLTSolver<FirstVectorType, SecondVectorType, SecondVectorType>::tridiagonal_ldlt(diag, subdiag);
-
 } // void tridiagonal_ldlt(...)
 
 

@@ -43,18 +43,15 @@ namespace internal {
 
 
 template <class ScalarImp>
-class CommonSparseVectorTraits
+struct CommonSparseVectorTraits : VectorTraitsBase<ScalarImp,
+                                                   CommonSparseVector<ScalarImp>,
+                                                   void,
+                                                   Backends::common_dense,
+                                                   Backends::common_dense,
+                                                   Backends::common_sparse>
 {
-public:
-  typedef typename Dune::FieldTraits<ScalarImp>::field_type ScalarType;
-  typedef typename Dune::FieldTraits<ScalarImp>::real_type RealType;
-  typedef ScalarType DataType;
-  static const Backends backend_type = Backends::common_dense;
-  static const Backends dense_matrix_type = Backends::common_dense;
-  static const Backends sparse_matrix_type = Backends::common_sparse;
-  typedef CommonSparseVector<ScalarImp> derived_type;
-  typedef std::vector<ScalarType> EntriesVectorType;
-  typedef std::vector<size_t> IndicesVectorType;
+  using EntriesVectorType = std::vector<ScalarImp>;
+  using IndicesVectorType = std::vector<size_t>;
 };
 
 
@@ -67,23 +64,25 @@ public:
 template <class ScalarImp = double>
 class CommonSparseVector : public VectorInterface<internal::CommonSparseVectorTraits<ScalarImp>, ScalarImp>
 {
-  typedef CommonSparseVector<ScalarImp> ThisType;
-  typedef VectorInterface<internal::CommonSparseVectorTraits<ScalarImp>, ScalarImp> VectorInterfaceType;
+  using ThisType = CommonSparseVector;
+  using InterfaceType = VectorInterface<internal::CommonSparseVectorTraits<ScalarImp>, ScalarImp>;
 
 public:
-  using Traits = typename VectorInterfaceType::Traits;
-  using derived_type = typename VectorInterfaceType::derived_type;
-  typedef typename Traits::ScalarType ScalarType;
-  typedef typename Traits::RealType RealType;
-  typedef typename Traits::DataType DataType;
-  typedef typename Traits::IndicesVectorType IndicesVectorType;
-  typedef typename Traits::EntriesVectorType EntriesVectorType;
+  using typename InterfaceType::RealType;
+  using typename InterfaceType::ScalarType;
+  using typename InterfaceType::Traits;
+  using IndicesVectorType = typename Traits::IndicesVectorType;
+  using EntriesVectorType = typename Traits::EntriesVectorType;
 
+private:
+  using MutexesType = typename Traits::MutexesType;
+
+public:
   explicit CommonSparseVector(const size_t sz = 0, const size_t num_mutexes = 1)
     : size_(sz)
     , entries_(new EntriesVectorType())
     , indices_(new IndicesVectorType())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
   }
@@ -92,7 +91,7 @@ public:
     : size_(sz)
     , entries_(new EntriesVectorType(size_, value))
     , indices_(new IndicesVectorType(size_))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     for (size_t ii = 0; ii < size_; ++ii)
@@ -103,7 +102,7 @@ public:
     : size_(other.size())
     , entries_(new EntriesVectorType(size_))
     , indices_(new IndicesVectorType(size_))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     for (size_t ii = 0; ii < size_; ++ii) {
@@ -121,7 +120,7 @@ public:
     : size_(sz)
     , entries_(new EntriesVectorType(entries.size()))
     , indices_(new IndicesVectorType(indices.size()))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     assert(entries.size() == indices.size());
@@ -135,7 +134,7 @@ public:
     : size_(other.size())
     , entries_(new EntriesVectorType(size_))
     , indices_(new IndicesVectorType(size_))
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     size_t ii = 0;
@@ -150,9 +149,7 @@ public:
     : size_(other.size_)
     , entries_(other.unshareable_ ? std::make_shared<EntriesVectorType>(*other.entries_) : other.entries_)
     , indices_(other.unshareable_ ? std::make_shared<IndicesVectorType>(*other.indices_) : other.indices_)
-    , mutexes_(other.mutexes_ ? (other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size())
-                                                    : other.mutexes_)
-                              : nullptr)
+    , mutexes_(other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size()) : other.mutexes_)
     , unshareable_(false)
   {
   }
@@ -166,7 +163,7 @@ public:
     : size_(other.size())
     , entries_(new EntriesVectorType())
     , indices_(new IndicesVectorType())
-    , mutexes_(num_mutexes > 0 ? std::make_shared<std::vector<std::mutex>>(num_mutexes) : nullptr)
+    , mutexes_(std::make_shared<std::vector<std::mutex>>(num_mutexes))
     , unshareable_(false)
   {
     for (size_t ii = 0; ii < size_; ++ii) {
@@ -193,10 +190,8 @@ public:
       size_ = other.size_;
       entries_ = other.unshareable_ ? std::make_shared<EntriesVectorType>(*other.entries_) : other.entries_;
       indices_ = other.unshareable_ ? std::make_shared<IndicesVectorType>(*other.indices_) : other.indices_;
-      mutexes_ = other.mutexes_
-                     ? (other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size())
-                                           : other.mutexes_)
-                     : nullptr;
+      mutexes_ =
+          other.unshareable_ ? std::make_shared<std::vector<std::mutex>>(other.mutexes_->size()) : other.mutexes_;
       unshareable_ = false;
     }
     return *this;
@@ -235,13 +230,13 @@ public:
 
   ThisType copy() const
   {
-    return ThisType(size_, *entries_, *indices_, mutexes_ ? mutexes_->size() : 0);
+    return ThisType(size_, *entries_, *indices_, mutexes_->size());
   }
 
   void scal(const ScalarType& alpha)
   {
     ensure_uniqueness();
-    const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+    const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
     auto& entries_ref = *entries_;
     for (size_t ii = 0; ii < entries_ref.size(); ++ii)
       entries_ref[ii] *= alpha;
@@ -284,7 +279,7 @@ public:
   void add_to_entry(const size_t ii, const ScalarType& value)
   {
     ensure_uniqueness();
-    internal::LockGuard DUNE_UNUSED(lock)(mutexes_, ii);
+    internal::LockGuard DUNE_UNUSED(lock)(*mutexes_, ii, size());
     get_unchecked_ref(ii) += value;
   }
 
@@ -487,11 +482,6 @@ public:
 
   // without these using declarations, the free operator+/* function in xt/common/vector.hh is chosen instead of the
   // member function
-  using VectorInterfaceType::operator+;
-  using VectorInterfaceType::operator-;
-  using VectorInterfaceType::operator*;
-
-protected:
   /**
    * \see ContainerInterface
    */
@@ -499,14 +489,17 @@ protected:
   {
     if (!entries_.unique()) {
       assert(!unshareable_);
-      const internal::VectorLockGuard DUNE_UNUSED(guard)(mutexes_);
+      const internal::VectorLockGuard DUNE_UNUSED(guard)(*mutexes_);
       if (!entries_.unique()) {
         entries_ = std::make_shared<EntriesVectorType>(*entries_);
         indices_ = std::make_shared<IndicesVectorType>(*indices_);
-        mutexes_ = mutexes_ ? std::make_shared<std::vector<std::mutex>>(mutexes_->size()) : nullptr;
+        mutexes_ = std::make_shared<std::vector<std::mutex>>(mutexes_->size());
       }
     }
   } // ... ensure_uniqueness(...)
+  using InterfaceType::operator+;
+  using InterfaceType::operator-;
+  using InterfaceType::operator*;
 
 private:
   friend class VectorInterface<internal::CommonSparseVectorTraits<ScalarType>, ScalarType>;
