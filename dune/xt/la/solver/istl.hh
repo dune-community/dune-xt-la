@@ -24,6 +24,7 @@
 
 #include <dune/xt/common/exceptions.hh>
 #include <dune/xt/common/configuration.hh>
+#include <dune/xt/common/type_traits.hh>
 
 #include <dune/xt/la/container/istl.hh>
 
@@ -129,7 +130,7 @@ public:
 
     if (std::is_same<CommunicatorType, XT::SequentialCommunication>::value) {
 #if HAVE_SUPERLU
-      ret.insert(ret.begin(), "superlu");
+//      ret.insert(ret.begin(), "superlu");
 #endif
 #if HAVE_UMFPACK
       ret.push_back("umfpack");
@@ -167,6 +168,7 @@ public:
 #endif
 #if HAVE_SUPERLU
     } else if (tp == "superlu") {
+      DUNE_THROW(InvalidStateException, "SUPERLYU CHOSEN");
       return general_opts;
 #endif
     } else
