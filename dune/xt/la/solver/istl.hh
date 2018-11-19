@@ -283,6 +283,8 @@ public:
       if (!solver_result.converged)
         DUNE_THROW(Exceptions::linear_solver_failed_bc_it_did_not_converge,
                    "The dune-istl backend reported 'InverseOperatorResult.converged == false'!\n"
+                       << XT::Common::get_typename(*this)
+                       << "\n"
                        << "Those were the given options:\n\n"
                        << opts);
 
