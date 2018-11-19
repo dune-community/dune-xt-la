@@ -50,6 +50,7 @@ typename std::enable_if<is_container<C>::value, void>::type addbind_ContainerInt
   using namespace pybind11::literals;
 
   typedef typename C::ScalarType S;
+  using ParaComm = Dune::OwnerOverlapCopyCommunication<unsigned long, int>;
 
   c.def("copy",
         [](C& self, const bool deep) {
@@ -61,6 +62,7 @@ typename std::enable_if<is_container<C>::value, void>::type addbind_ContainerInt
         "deep"_a = false);
   c.def("scal", [](C& self, const S& alpha) { self.scal(alpha); }, "alpha"_a);
   c.def("axpy", [](C& self, const S& alpha, const C& xx) { self.axpy(alpha, xx); });
+  c.def("caxpy", [](C& self, const S& alpha, const C& xx, const ParaComm& comm) { self.caxpy(alpha, xx, comm); });
   c.def("has_equal_shape", [](const C& self, const C& other) { return self.has_equal_shape(other); }, "other"_a);
   c.def(py::self *= S());
   c.def(py::self * S());

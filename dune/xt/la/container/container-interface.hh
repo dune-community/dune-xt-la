@@ -25,6 +25,8 @@
 #include <dune/xt/common/exceptions.hh>
 #include <dune/xt/common/type_traits.hh>
 
+#include <dune/istl/owneroverlapcopy.hh>
+
 namespace Dune {
 namespace XT {
 namespace LA {
@@ -207,6 +209,18 @@ public:
   inline void axpy(const ScalarType& alpha, const derived_type& xx)
   {
     CHECK_AND_CALL_CRTP(this->as_imp().axpy(alpha, xx));
+  }
+
+  /**
+ * \brief BLAS AXPY operation.
+ * \param alpha The scalar coefficient with which each element of the container is multiplied
+ * \param xx    Container that is to be elementwise added.
+ */
+  inline void caxpy(const ScalarType& alpha,
+                    const derived_type& xx,
+                    const Dune::OwnerOverlapCopyCommunication<unsigned long, int>& /*comm*/)
+  {
+    this->axpy(alpha, xx);
   }
 
   /**

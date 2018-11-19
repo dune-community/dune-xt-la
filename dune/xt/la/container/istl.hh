@@ -249,6 +249,14 @@ public:
     backend_ref.axpy(alpha, xx.backend());
   }
 
+  inline void caxpy(const ScalarType& alpha,
+                    const ThisType& xx,
+                    const Dune::OwnerOverlapCopyCommunication<unsigned long, int>& comm)
+  {
+    axpy(alpha, xx);
+    comm.copyOwnerToAll(backend(), backend());
+  }
+
   bool has_equal_shape(const ThisType& other) const
   {
     return size() == other.size();

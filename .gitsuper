@@ -18,7 +18,7 @@ status = 1a3bcab04b011a5d6e44f9983cae6ff89fa695e8 bin (heads/master)
 	 e69fd76a2344e7ed99858ff9cb0988437c439b5a dune-xt-data (heads/rene/parabolic-lrbms-2017)
 	 841cdccca42c349ff92991639a2466837617d29c dune-xt-functions (heads/rene/parabolic-lrbms-2017)
 	+fde955b17de07ee7f2156545c42b5e28c45955c6 dune-xt-grid (heads/rene/parabolic-lrbms-2017)
-	+95f4bf24246434d4daffe9bca335bb37c337cd69 dune-xt-la (heads/rene/parabolic-lrbms-2017)
+	+3332cd6692aa52a8e328f86477d29a846ed0fe09 dune-xt-la (heads/rene/parabolic-lrbms-2017)
 	+3fd4dbd57b54f412e28b84aa6f77fb440c120f7d mpi4py (3.0.0)
 	+7e8bf5f1a6e1401621da83b8d012df6a4d4d78d1 pylrbms (heads/master)
 	+ef092c1221aef5559e08e974ef6d2199fbbc3b0e pymor (0.1.0-3243-gef092c12)
@@ -118,7 +118,7 @@ commit = fde955b17de07ee7f2156545c42b5e28c45955c6
 [submodule.dune-xt-la]
 remote = https://github.com/dune-community/dune-xt-la.git
 status = 2424627f0ad5de7e4aaa5e7f48bc2a02414d95a1 .vcsetup (heads/master)
-commit = 95f4bf24246434d4daffe9bca335bb37c337cd69
+commit = 3332cd6692aa52a8e328f86477d29a846ed0fe09
 
 [submodule.mpi4py]
 remote = https://github.com/mpi4py/mpi4py
