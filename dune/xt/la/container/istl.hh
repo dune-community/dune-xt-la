@@ -19,6 +19,8 @@
 #include <complex>
 #include <mutex>
 
+#include <dune/xt/common/math.hh> // < has to be here before #include <dune/common/fmatrix.hh>!
+
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/typetraits.hh>
