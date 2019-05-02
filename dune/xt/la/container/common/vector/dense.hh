@@ -11,13 +11,14 @@
 #ifndef DUNE_XT_LA_CONTAINER_COMMON_VECTOR_DENSE_HH
 #define DUNE_XT_LA_CONTAINER_COMMON_VECTOR_DENSE_HH
 
+#include <algorithm>
 #include <cmath>
+#include <complex>
 #include <initializer_list>
 #include <memory>
+#include <mutex>
 #include <type_traits>
 #include <vector>
-#include <complex>
-#include <mutex>
 
 #include <dune/common/dynvector.hh>
 #include <dune/common/float_cmp.hh>
@@ -41,12 +42,150 @@ class CommonDenseVector;
 namespace internal {
 
 
+template <class ScalarImp>
+struct CommonDenseVectorBackend
+{
+  using ScalarType = ScalarImp;
+  using RealType = typename Dune::FieldTraits<ScalarImp>::real_type;
+  using ThisType = CommonDenseVectorBackend;
+
+  CommonDenseVectorBackend(const size_t ss = 0, const ScalarType& value = ScalarType())
+    : size_(ss)
+    , values_vector_(size_, value)
+    , values_ptr_(values_vector_.data())
+    , created_from_ptr_(false)
+  {}
+
+  CommonDenseVectorBackend(const size_t ss, ScalarType* values_ptr)
+    : size_(ss)
+    , values_ptr_(values_ptr)
+    , created_from_ptr_(true)
+  {}
+
+  CommonDenseVectorBackend(const ThisType& other)
+    : size_(other.size_)
+    , values_vector_(other.values_vector_)
+    , values_ptr_(other.created_from_ptr_ ? other.values_ptr_ : values_vector_.data())
+    , created_from_ptr_(other.created_from_ptr_)
+  {}
+
+  CommonDenseVectorBackend(ThisType&& other)
+    : size_(std::move(other.size_))
+    , values_vector_(std::move(other.values_vector_))
+    , values_ptr_(other.created_from_ptr_ ? other.values_ptr_ : values_vector_.data())
+    , created_from_ptr_(other.created_from_ptr_)
+  {}
+
+  ThisType& operator=(const ThisType& other)
+  {
+    if (this != &other) {
+      size_ = other.size_;
+      values_vector_ = other.values_vector_;
+      values_ptr_ = other.created_from_ptr_ ? other.values_ptr_ : values_vector_.data();
+    }
+    return *this;
+  }
+
+  ScalarType& operator[](const size_t ii)
+  {
+    return values_ptr_[ii];
+  }
+
+  const ScalarType& operator[](const size_t ii) const
+  {
+    return values_ptr_[ii];
+  }
+
+  void resize(const size_t ss)
+  {
+    size_ = ss;
+    values_vector_.resize(size_);
+    values_ptr_ = values_vector_.data();
+  }
+
+  size_t size() const
+  {
+    return size_;
+  }
+
+  ThisType& operator+=(const ThisType& other)
+  {
+    assert(other.size_ == size_);
+    for (size_t ii = 0; ii < size_; ++ii)
+      values_ptr_[ii] += other[ii];
+    return *this;
+  }
+
+  ThisType& operator-=(const ThisType& other)
+  {
+    assert(other.size_ == size_);
+    for (size_t ii = 0; ii < size_; ++ii)
+      values_ptr_[ii] -= other[ii];
+    return *this;
+  }
+
+  ThisType& operator*=(const ThisType& other)
+  {
+    assert(other.size_ == size_);
+    for (size_t ii = 0; ii < size_; ++ii)
+      values_ptr_[ii] *= other[ii];
+    return *this;
+  }
+
+  ThisType& operator*=(const ScalarType& val)
+  {
+    for (size_t ii = 0; ii < size_; ++ii)
+      values_ptr_[ii] *= val;
+    return *this;
+  }
+
+  ThisType& operator/=(const ThisType& other)
+  {
+    assert(other.size_ == size_);
+    for (size_t ii = 0; ii < size_; ++ii)
+      values_ptr_[ii] /= other[ii];
+    return *this;
+  }
+
+  ScalarType operator*(const ThisType& other) const
+  {
+    return std::inner_product(values_ptr_, values_ptr_ + size_, other.values_ptr_, ScalarType(0.));
+  }
+
+  RealType l1_norm() const
+  {
+    return std::accumulate(values_ptr_, values_ptr_ + size_, RealType(0.), [](const RealType& a, const ScalarType& b) {
+      return a + std::abs(b);
+    });
+  }
+
+  RealType l2_norm() const
+  {
+    return std::sqrt(
+        std::accumulate(values_ptr_, values_ptr_ + size_, RealType(0.), [](const RealType& a, const ScalarType& b) {
+          return a + std::pow(std::abs(b), 2);
+        }));
+  }
+
+  RealType sup_norm() const
+  {
+    return std::abs(*std::max_element(values_ptr_, values_ptr_ + size_, [](const ScalarType& a, const ScalarType& b) {
+      return std::abs(a) < std::abs(b);
+    }));
+  }
+
+  size_t size_;
+  std::vector<ScalarType> values_vector_;
+  ScalarType* values_ptr_;
+  bool created_from_ptr_;
+};
+
 /// Traits for CommonDenseVector
 template <class ScalarImp>
 class CommonDenseVectorTraits
   : public VectorTraitsBase<ScalarImp,
                             CommonDenseVector<ScalarImp>,
-                            Dune::DynamicVector<ScalarImp>,
+                            CommonDenseVectorBackend<ScalarImp>,
                             Backends::common_dense,
                             Backends::common_dense,
                             Backends::common_sparse>
@@ -103,6 +242,19 @@ public:
       backend_->operator[](ii) = element;
       ++ii;
     }
+  } // CommonDenseVector(...)
+
+  explicit CommonDenseVector(const size_t ss, ScalarType* values_ptr, const size_t num_mutexes = 1)
+    : backend_(new BackendType(ss, values_ptr))
+    , mutexes_(std::make_unique<MutexesType>(num_mutexes))
+  {} // CommonDenseVector(...)
+
+  explicit CommonDenseVector(const Dune::DynamicVector<ScalarType>& dynvec, const size_t num_mutexes = 1)
+    : backend_(new BackendType(dynvec.size()))
+    , mutexes_(std::make_unique<MutexesType>(num_mutexes))
+  {
+    for (size_t ii = 0; ii < size(); ++ii)
+      (*backend_)[ii] = dynvec[ii];
   } // CommonDenseVector(...)
 
   CommonDenseVector(const ThisType& other)
@@ -283,17 +435,17 @@ public:
 
   virtual RealType l1_norm() const override final
   {
-    return backend().one_norm();
+    return backend().l1_norm();
   }
 
   virtual RealType l2_norm() const override final
   {
-    return backend().two_norm();
+    return backend().l2_norm();
   }
 
   virtual RealType sup_norm() const override final
   {
-    return backend().infinity_norm();
+    return backend().sup_norm();
   }
 
   virtual void iadd(const ThisType& other) override final
