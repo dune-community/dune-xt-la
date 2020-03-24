@@ -9,8 +9,7 @@
 #   Felix Schindler (2016 - 2017)
 ```
 
-[![Build Status](https://travis-ci.org/dune-community/dune-xt-la.svg?branch=master)](https://travis-ci.org/dune-community/dune-xt-la)
-
+## Note: This repository is not maintained anymore and has been merged into [dune-xt](https://zivgitlab.uni-muenster.de/ag-ohlberger/dune-community/dune-xt).
 
 dune-xt-la is an eXTensions module for DUNE (http://www.dune-project.org),
 which is often used together with [dune-xt-common](https://github.com/dune-community/dune-xt-common),
